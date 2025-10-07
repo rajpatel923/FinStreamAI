@@ -1,0 +1,160 @@
+kafka:
+  brokers:
+    - kafka-1:9092
+    - kafka-2:9092
+    - kafka-3:9092
+  producer:
+    compression: snappy
+    idempotent: true
+    max_retries: 5
+    batch_size: 16384
+    linger_ms: 10
+    acks: all
+    timeout: 30s
+  topics:
+    market_ticks: market.ticks.raw
+    news_articles: news.articles.raw
+    social_posts: social.posts.raw
+    sec_filings: sec.filings.raw
+    alt_data: alt.data.raw
+
+# Schema Registry
+schema_registry:
+  url: http://schema-registry:8081
+  cache_capacity: 1000
+
+# Market Data Producer
+market_producer:
+  enabled: true
+  name: market-producer
+  websocket:
+    url: wss://socket.polygon.io/stocks
+    reconnect_delay: 5s
+    read_timeout: 60s
+    write_timeout: 10s
+  symbols:
+    - AAPL
+    - GOOGL
+    - MSFT
+    - AMZN
+    - TSLA
+    - META
+    - NVDA
+    - JPM
+    - V
+    - MA
+  rate_limit: 10000  # messages per second
+  batch_size: 100
+  flush_interval: 10ms
+
+# News Producer
+news_producer:
+  enabled: true
+  name: news-producer
+  sources:
+    - name: newsapi
+      url: https://newsapi.org/v2/everything
+      api_key_env: NEWS_API_KEY
+      poll_interval: 60s
+      query: "finance OR stocks OR market"
+    - name: alphavantage_news
+      url: https://www.alphavantage.co/query
+      api_key_env: ALPHAVANTAGE_API_KEY
+      poll_interval: 300s
+      function: NEWS_SENTIMENT
+  rate_limit: 100
+  dedupe_window: 24h
+  batch_size: 50
+  flush_interval: 1s
+
+# Social Media Producer
+social_producer:
+  enabled: true
+  name: social-producer
+  twitter:
+    enabled: true
+    api_key_env: TWITTER_API_KEY
+    api_secret_env: TWITTER_API_SECRET
+    bearer_token_env: TWITTER_BEARER_TOKEN
+    stream_rules:
+      - "$AAPL OR $GOOGL OR $MSFT"
+      - "cashtag:* lang:en"
+    rate_limit: 1000
+  reddit:
+    enabled: true
+    client_id_env: REDDIT_CLIENT_ID
+    client_secret_env: REDDIT_CLIENT_SECRET
+    user_agent: "FinStreamAI/1.0"
+    subreddits:
+      - wallstreetbets
+      - stocks
+      - investing
+    poll_interval: 30s
+    rate_limit: 60
+  batch_size: 50
+  flush_interval: 1s
+
+# SEC Filing Producer
+sec_producer:
+  enabled: true
+  name: sec-producer
+  edgar:
+    rss_url: https://www.sec.gov/cgi-bin/browse-edgar
+    poll_interval: 300s
+    form_types:
+      - 8-K
+      - 10-K
+      - 10-Q
+      - 13F
+      - 4
+      - S-1
+    user_agent: "FinStreamAI bot@finstreami.com"
+  rate_limit: 10  # SEC rate limit
+  batch_size: 20
+  flush_interval: 5s
+
+# Alternative Data Producer
+alt_data_producer:
+  enabled: true
+  name: alt-data-producer
+  sources:
+    - name: satellite_imagery
+      type: api
+      url: https://api.example.com/satellite
+      poll_interval: 3600s
+    - name: web_scraping
+      type: custom
+      targets:
+        - url: https://example.com/data
+          selector: ".data-point"
+      poll_interval: 600s
+  rate_limit: 50
+  batch_size: 10
+  flush_interval: 5s
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+  log_level: info
+  structured_logging: true
+
+# Circuit Breaker
+circuit_breaker:
+  max_requests: 3
+  interval: 60s
+  timeout: 30s
+
+# Retry Configuration
+retry:
+  max_attempts: 5
+  initial_backoff: 100ms
+  max_backoff: 10s
+  multiplier: 2
+
+# Health Check
+health:
+  port: 8081
+  path: /health
