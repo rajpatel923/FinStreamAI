@@ -42,8 +42,11 @@ func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
 	}
 }
 
-func (cb *CircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, error) {
-	return cb.cb.Execute(fn)
+func (cb *CircuitBreaker) Execute(fn func() error) error {
+	_, err := cb.cb.Execute(func() (interface{}, error) {
+		return nil, fn()
+	})
+	return err
 }
 
 func (cb *CircuitBreaker) State() gobreaker.State {

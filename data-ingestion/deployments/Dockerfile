@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
 FROM builder AS sec-producer-builder
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
     -ldflags '-extldflags "-static"' \
-    -o /app/bin/sec-producer ./cmd/sec-producer
+    -o /app/bin/sec-filing-producer ./cmd/sec-producer
 
 FROM builder AS alt-data-producer-builder
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \

@@ -97,7 +97,7 @@ social_producer:
 # SEC Filing Producer
 sec_producer:
   enabled: true
-  name: sec-producer
+  name: sec-filing-producer
   edgar:
     rss_url: https://www.sec.gov/cgi-bin/browse-edgar
     poll_interval: 300s
