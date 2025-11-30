@@ -3,9 +3,10 @@ package producer
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/compress"
-	"time"
 )
 
 type KafkaProducer struct {
@@ -16,7 +17,7 @@ type KafkaProducer struct {
 
 func NewkafkaProducer(config *Config, logger Logger) (*KafkaProducer, error) {
 	writer := &kafka.Writer{
-		Addr:     kafka.TCP(config.kafkaBrokers...),
+		Addr:     kafka.TCP(config.KafkaBrokers...),
 		Topic:    config.Topic,
 		Balancer: &kafka.Hash{},
 
@@ -41,7 +42,7 @@ func NewkafkaProducer(config *Config, logger Logger) (*KafkaProducer, error) {
 		config: config,
 		Logger: logger,
 	}
-	logger.Info("kafka producer initialized", "producer", config.ProducerName, "topic", config.Topic, "brokers", config.kafkaBrokers)
+	logger.Info("kafka producer initialized", "producer", config.ProducerName, "topic", config.Topic, "brokers", config.KafkaBrokers)
 
 	return kp, nil
 }
@@ -75,7 +76,7 @@ func (kp *KafkaProducer) Publish(ctx context.Context, topic string, key []byte, 
 }
 
 func (kp *KafkaProducer) Ping() error {
-	conn, err := kafka.Dial("tcp", kp.config.kafkaBrokers[0])
+	conn, err := kafka.Dial("tcp", kp.config.KafkaBrokers[0])
 	if err != nil {
 		return fmt.Errorf("Failed to connect to Kafka: %w", err)
 	}
