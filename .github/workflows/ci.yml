@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install ruff==0.1.6 black==23.11.0
+
+      - name: Ruff — api-services
+        run: ruff check api-services/src/ api-services/tests/
+
+      - name: Black — api-services
+        run: black --check api-services/src/ api-services/tests/
+
+      - name: Ruff — data-ingestion
+        run: ruff check data-ingestion/src/
+
+      - name: Black — data-ingestion
+        run: black --check data-ingestion/src/
+
+  test-api:
+    name: Test API Services (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: api-services/requirements.txt
+
+      - name: Install dependencies
+        working-directory: api-services
+        run: pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        working-directory: api-services
+        env:
+          DEBUG: "True"
+          POSTGRES_HOST: localhost
+          TIMESCALEDB_HOST: localhost
+          REDIS_HOST: localhost
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+        run: |
+          python -m pytest tests/ -v \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: api-services/coverage.xml
+
+  build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    needs: [lint, test-api]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build api-services image
+        uses: docker/build-push-action@v5
+        with:
+          context: api-services
+          push: false
+          tags: finstreami/api-services:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build data-ingestion image
+        uses: docker/build-push-action@v5
+        with:
+          context: data-ingestion
+          push: false
+          tags: finstreami/data-ingestion:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
