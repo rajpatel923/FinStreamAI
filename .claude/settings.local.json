@@ -7,7 +7,12 @@
       "Bash(git -C /Users/rajpatel/Documents/GitHub/FinStreamAI log --oneline -10)",
       "Bash(chmod +x /Users/rajpatel/Documents/GitHub/FinStreamAI/scripts/setup.sh)",
       "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/api-services && python3 -c \"import ast, sys; files=['src/core/config.py','src/core/database.py','src/core/logging.py','src/api/v1/health.py','src/main.py','tests/test_health.py']; [ast.parse\\(open\\(f\\).read\\(\\)\\) or print\\(f'OK: {f}'\\) for f in files]\" 2>&1)",
-      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion && python3 -c \"import ast; files=['src/config/kafka_config.py','src/config/data_source_config.py','src/utils/monitoring.py','src/producers/base_producer.py']; [ast.parse\\(open\\(f\\).read\\(\\)\\) or print\\(f'OK: {f}'\\) for f in files]\" 2>&1)"
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion && python3 -c \"import ast; files=['src/config/kafka_config.py','src/config/data_source_config.py','src/utils/monitoring.py','src/producers/base_producer.py']; [ast.parse\\(open\\(f\\).read\\(\\)\\) or print\\(f'OK: {f}'\\) for f in files]\" 2>&1)",
+      "Bash(find /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion -name \"*.avsc\" -o -name \"*.avro\" 2>/dev/null | head -50)",
+      "Bash(tree -L 3 -I 'venv' /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion/ 2>/dev/null || find /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion -not -path \"*/venv/*\" -not -path \"*/.idea/*\" -not -path \"*/__pycache__/*\" -type f | head -40)",
+      "Bash(wc -l /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion/src/producers/base_producer.py /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion/src/config/*.py /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion/src/utils/monitoring.py)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/data-ingestion && pip install -r requirements.txt -q 2>&1 | tail -5)",
+      "Bash(python -m pytest tests/ -v 2>&1)"
     ]
   }
 }

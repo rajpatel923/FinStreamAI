@@ -7,9 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY data-ingestion/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src/ ./src/
+COPY finstream_config/ ./finstream_config/
+COPY data-ingestion/src/ ./src/
 
 CMD ["python", "-m", "src.main"]

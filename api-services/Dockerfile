@@ -8,11 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY api-services/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application source
-COPY src/ ./src/
+COPY finstream_config/ ./finstream_config/
+COPY api-services/src/ ./src/
 
 EXPOSE 8000
 

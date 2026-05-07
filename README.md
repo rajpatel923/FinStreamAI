@@ -48,7 +48,7 @@ make api      # Start FastAPI at http://localhost:8000
 | API | http://localhost:8000 |
 | API Docs | http://localhost:8000/docs |
 | Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3001 (admin / finstreami123) |
+| Grafana | http://localhost:3001 (`GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`) |
 | Jaeger | http://localhost:16686 |
 | MinIO | http://localhost:9001 |
 | Neo4j | http://localhost:7474 |

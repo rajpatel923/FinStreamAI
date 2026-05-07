@@ -49,6 +49,20 @@ api_requests_total = Counter(
 )
 
 
+# Data quality
+validation_failures_total = Counter(
+    "finstreami_validation_failures_total",
+    "Total number of records that failed validation",
+    ["producer", "field"],
+)
+
+mock_messages_total = Counter(
+    "finstreami_mock_messages_total",
+    "Total number of mock messages produced",
+    ["producer"],
+)
+
+
 def start_metrics_server(port: int = 8001) -> None:
     """Start the Prometheus metrics HTTP server."""
     start_http_server(port)

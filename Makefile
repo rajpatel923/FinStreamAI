@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra stop logs test lint format api kafka-ui topics db-init clean help
+.PHONY: setup dev dev-infra stop logs test test-ingest lint format api ingest kafka-ui topics db-init clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -18,6 +18,8 @@ help:
 	@echo "  make kafka-ui     Start Kafka UI on port 8080"
 	@echo "  make topics       Create all Kafka topics"
 	@echo "  make db-init      Run database init scripts"
+	@echo "  make ingest       Start data-ingestion pipeline (mock mode by default)"
+	@echo "  make test-ingest  Run data-ingestion tests"
 	@echo "  make clean        Stop services, remove volumes, prune"
 
 setup:
@@ -35,7 +37,7 @@ dev-infra:
 	@echo "  TimescaleDB:    localhost:5433"
 	@echo "  Redis:          localhost:6379"
 	@echo "  Prometheus:     http://localhost:9090"
-	@echo "  Grafana:        http://localhost:3001 (admin/finstreami123)"
+	@echo "  Grafana:        http://localhost:3001 ($${GRAFANA_ADMIN_USER:-admin}/$${GRAFANA_ADMIN_PASSWORD:-from .env})"
 	@echo "  Jaeger:         http://localhost:16686"
 
 stop:
@@ -47,6 +49,9 @@ logs:
 test:
 	cd api-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
+test-ingest:
+	cd data-ingestion && $(PYTHON) -m pytest tests/ -v
+
 lint:
 	cd api-services && $(PYTHON) -m ruff check src/ tests/ && $(PYTHON) -m black --check src/ tests/
 	cd data-ingestion && $(PYTHON) -m ruff check src/ && $(PYTHON) -m black --check src/
@@ -57,6 +62,9 @@ format:
 
 api:
 	cd api-services && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+
+ingest:
+	cd data-ingestion && $(PYTHON) -m src.main
 
 kafka-ui:
 	$(DOCKER_COMPOSE) run --rm -p 8080:8080 \
