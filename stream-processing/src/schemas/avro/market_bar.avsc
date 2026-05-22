@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "MarketBar",
+  "fields": [
+    {"name": "bar_id", "type": "string"},
+    {"name": "symbol", "type": "string"},
+    {"name": "timeframe", "type": "string"},
+    {"name": "timestamp_ms", "type": "long"},
+    {"name": "open", "type": "double"},
+    {"name": "high", "type": "double"},
+    {"name": "low", "type": "double"},
+    {"name": "close", "type": "double"},
+    {"name": "volume", "type": "long"},
+    {"name": "vwap", "type": ["null", "double"], "default": null},
+    {"name": "trade_count", "type": ["null", "int"], "default": null},
+    {"name": "source", "type": "string"},
+    {"name": "is_mock", "type": "boolean", "default": false}
+  ]
+}

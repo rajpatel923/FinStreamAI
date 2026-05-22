@@ -79,7 +79,7 @@ services:
     container_name: finstreami-postgres
     networks: [finstreami-network]
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-finstreami}
       POSTGRES_USER: ${POSTGRES_USER:-finstreami}
@@ -209,3 +209,28 @@ services:
       - "14268:14268"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
+
+  # ─── Stream Processing ────────────────────────────────────────
+  stream-processing:
+    build:
+      context: .
+      dockerfile: stream-processing/Dockerfile
+    container_name: finstreami-stream-processing
+    networks: [finstreami-network]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: 5432
+      STREAM_METRICS_PORT: 8002
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./stream-processing/src:/app/src:ro
+    restart: unless-stopped

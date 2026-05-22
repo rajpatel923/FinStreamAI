@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "TechnicalIndicator",
+  "fields": [
+    {"name": "indicator_id",   "type": "string"},
+    {"name": "symbol",         "type": "string"},
+    {"name": "timestamp_ms",   "type": "long"},
+    {"name": "indicator_name", "type": "string"},
+    {"name": "timeframe",      "type": "string"},
+    {"name": "value",          "type": "double"},
+    {"name": "signal_value",   "type": ["null", "double"], "default": null},
+    {"name": "upper_band",     "type": ["null", "double"], "default": null},
+    {"name": "lower_band",     "type": ["null", "double"], "default": null},
+    {"name": "metadata",       "type": {"type": "map", "values": "string"}, "default": {}}
+  ]
+}

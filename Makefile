@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra stop logs test test-ingest lint format api ingest kafka-ui topics db-init clean help
+.PHONY: setup dev dev-infra stop logs test test-ingest test-stream lint format api ingest stream kafka-ui topics db-init clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -20,6 +20,8 @@ help:
 	@echo "  make db-init      Run database init scripts"
 	@echo "  make ingest       Start data-ingestion pipeline (mock mode by default)"
 	@echo "  make test-ingest  Run data-ingestion tests"
+	@echo "  make stream       Start stream-processing pipeline"
+	@echo "  make test-stream  Run stream-processing tests (≥80% coverage)"
 	@echo "  make clean        Stop services, remove volumes, prune"
 
 setup:
@@ -55,6 +57,7 @@ test-ingest:
 lint:
 	cd api-services && $(PYTHON) -m ruff check src/ tests/ && $(PYTHON) -m black --check src/ tests/
 	cd data-ingestion && $(PYTHON) -m ruff check src/ && $(PYTHON) -m black --check src/
+	cd stream-processing && $(PYTHON) -m ruff check src/ && $(PYTHON) -m black --check src/
 
 format:
 	cd api-services && $(PYTHON) -m black src/ tests/ && $(PYTHON) -m isort src/ tests/
@@ -65,6 +68,12 @@ api:
 
 ingest:
 	cd data-ingestion && $(PYTHON) -m src.main
+
+stream:
+	cd stream-processing && $(PYTHON) -m src.main
+
+test-stream:
+	cd stream-processing && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80
 
 kafka-ui:
 	$(DOCKER_COMPOSE) run --rm -p 8080:8080 \

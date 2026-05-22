@@ -136,6 +136,22 @@ class Settings(BaseSettings):
     JAEGER_ENDPOINT: str = "http://localhost:14268/api/traces"
     METRICS_PORT: int = 8001
 
+    # ─── Stream Processing ────────────────────────────────────────
+    STREAM_PROCESSING_GROUP_PREFIX: str = "stream"
+    WINDOW_GRACE_PERIOD_MS: int = 30_000
+    DEDUP_WINDOW_MS: int = 60_000
+    ANOMALY_ZSCORE_HIGH: float = 3.0
+    ANOMALY_ZSCORE_MEDIUM: float = 2.0
+    VOLUME_SPIKE_HIGH_MULT: float = 3.0
+    VOLUME_SPIKE_MEDIUM_MULT: float = 2.0
+    MOMENTUM_THRESHOLD_PCT: float = 5.0
+    FEATURE_MIN_BARS: int = 20
+    INDICATOR_DEQUE_MAXLEN: int = 200
+    RSI_OVERBOUGHT: float = 70.0
+    RSI_OVERSOLD: float = 30.0
+    SIGNAL_DEDUP_WINDOW_S: int = 300
+    STREAM_METRICS_PORT: int = 8002
+
     model_config = SettingsConfigDict(
         env_file=(_REPO_ROOT / ".env", ".env"),
         env_file_encoding="utf-8",
@@ -174,6 +190,13 @@ class Settings(BaseSettings):
         )
 
     @property
+    def timescaledb_sync_url(self) -> str:
+        return (
+            f"postgresql://{self.TIMESCALEDB_USER}:{self.TIMESCALEDB_PASSWORD}"
+            f"@{self.TIMESCALEDB_HOST}:{self.TIMESCALEDB_PORT}/{self.TIMESCALEDB_DB}"
+        )
+
+    @property
     def redis_url(self) -> str:
         if self.REDIS_PASSWORD:
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
@@ -206,7 +229,6 @@ class Settings(BaseSettings):
             "group.id": group_id or self.KAFKA_GROUP_ID,
             "auto.offset.reset": self.KAFKA_AUTO_OFFSET_RESET,
             "enable.auto.commit": self.KAFKA_ENABLE_AUTO_COMMIT,
-            "max.poll.interval.ms": self.KAFKA_MAX_POLL_RECORDS,
             "session.timeout.ms": self.KAFKA_SESSION_TIMEOUT_MS,
             "heartbeat.interval.ms": self.KAFKA_HEARTBEAT_INTERVAL_MS,
         }
