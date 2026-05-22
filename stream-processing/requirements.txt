@@ -1,5 +1,6 @@
 confluent-kafka==2.3.0
 fastavro==1.9.4
+redis==5.0.1
 pydantic==2.5.0
 pydantic-settings==2.1.0
 structlog==23.2.0

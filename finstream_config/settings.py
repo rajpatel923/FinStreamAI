@@ -145,6 +145,8 @@ class Settings(BaseSettings):
     VOLUME_SPIKE_HIGH_MULT: float = 3.0
     VOLUME_SPIKE_MEDIUM_MULT: float = 2.0
     MOMENTUM_THRESHOLD_PCT: float = 5.0
+    JOIN_WINDOW_MS: int = 300_000
+    FEATURE_STORE_TTL_S: int = 300
     FEATURE_MIN_BARS: int = 20
     INDICATOR_DEQUE_MAXLEN: int = 200
     RSI_OVERBOUGHT: float = 70.0

@@ -9,6 +9,7 @@ from src.jobs.anomaly_detection_job import AnomalyDetectionJob
 from src.jobs.base_job import BaseJob
 from src.jobs.data_cleaning_job import DataCleaningJob
 from src.jobs.feature_engineering_job import FeatureEngineeringJob
+from src.jobs.real_time_join_job import RealTimeJoinJob
 from src.jobs.signal_generation_job import SignalGenerationJob
 from src.utils.monitoring import start_metrics_server
 
@@ -29,6 +30,7 @@ def build_jobs() -> list[BaseJob]:
         AnomalyDetectionJob(),
         FeatureEngineeringJob(),
         SignalGenerationJob(),
+        RealTimeJoinJob(),
     ]
 
 

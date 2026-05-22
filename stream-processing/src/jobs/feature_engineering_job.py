@@ -5,6 +5,7 @@ import structlog
 from src.config import settings
 from src.jobs.base_job import BaseJob
 from src.processors.technical_indicators import TechnicalIndicators
+from src.sinks.redis_sink import RedisSink
 from src.sinks.timescaledb_sink import TimescaleDBSink
 from src.state.rolling_state import RollingState
 
@@ -20,7 +21,11 @@ class FeatureEngineeringJob(BaseJob):
     INPUT_TOPIC = "market.bars.1min"
     OUTPUT_TOPIC = "technical.indicators"
 
-    def __init__(self, db_sink: TimescaleDBSink | None = None) -> None:
+    def __init__(
+        self,
+        db_sink: TimescaleDBSink | None = None,
+        redis_sink: RedisSink | None = None,
+    ) -> None:
         super().__init__(
             job_name="features",
             input_topics=[self.INPUT_TOPIC],
@@ -30,6 +35,7 @@ class FeatureEngineeringJob(BaseJob):
         self._rolling_state = RollingState()
         self._indicators = TechnicalIndicators()
         self._db_sink = db_sink or TimescaleDBSink()
+        self._redis_sink = redis_sink or RedisSink()
 
     def process(self, record: dict, raw_msg: Any) -> list[tuple[str, bytes, bytes]]:
         symbol = record["symbol"]
@@ -57,6 +63,13 @@ class FeatureEngineeringJob(BaseJob):
             except Exception as exc:
                 logger.error("TimescaleDB indicator write failed", job=self.job_name, error=str(exc))
 
+        if indicators:
+            redis_features = {ind["indicator_name"]: ind["value"] for ind in indicators}
+            try:
+                self._redis_sink.write_features(symbol, redis_features)
+            except Exception as exc:
+                logger.error("Redis indicator write failed", job=self.job_name, error=str(exc))
+
         return outputs
 
     def run(self) -> None:
@@ -64,3 +77,4 @@ class FeatureEngineeringJob(BaseJob):
             super().run()
         finally:
             self._db_sink.flush()
+            self._redis_sink.close()

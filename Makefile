@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra stop logs test test-ingest test-stream lint format api ingest stream kafka-ui topics db-init clean help
+.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream test test-ingest test-stream lint format api ingest stream kafka-ui topics db-init clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -7,10 +7,17 @@ help:
 	@echo "FinStreamAI — Developer Commands"
 	@echo ""
 	@echo "  make setup        Run setup.sh (checks prereqs, starts infra, creates topics)"
+	@echo "  make start        Start full stack (infra + all app services)"
+	@echo "  make stop         Stop all services (app processes + docker infra)"
+	@echo "  make restart      stop + start"
+	@echo "  make health       Check all service health endpoints"
+	@echo "  make status       Alias for health"
 	@echo "  make dev          Start all docker-compose services"
 	@echo "  make dev-infra    Start infrastructure only (no app services)"
-	@echo "  make stop         Stop all services"
-	@echo "  make logs         Tail all service logs"
+	@echo "  make logs         Tail all docker service logs"
+	@echo "  make logs-api     Tail api-services log file"
+	@echo "  make logs-ingest  Tail data-ingestion log file"
+	@echo "  make logs-stream  Tail stream-processing log file"
 	@echo "  make test         Run all tests"
 	@echo "  make lint         Run ruff + black check"
 	@echo "  make format       Auto-format with black + isort"
@@ -27,12 +34,25 @@ help:
 setup:
 	@bash scripts/setup.sh
 
+start:
+	@bash scripts/start.sh
+
+stop:
+	@bash scripts/stop.sh
+
+restart: stop start
+
+health:
+	@bash scripts/health-check.sh
+
+status: health
+
 dev:
 	$(DOCKER_COMPOSE) up -d
 	@echo "All services started. API at http://localhost:8000"
 
 dev-infra:
-	$(DOCKER_COMPOSE) up -d zookeeper kafka schema-registry postgres timescaledb redis neo4j minio prometheus grafana jaeger
+	$(DOCKER_COMPOSE) up -d kafka schema-registry postgres timescaledb redis neo4j minio prometheus grafana jaeger
 	@echo "Infrastructure started."
 	@echo "  Kafka:          localhost:9092"
 	@echo "  PostgreSQL:     localhost:5432"
@@ -42,11 +62,17 @@ dev-infra:
 	@echo "  Grafana:        http://localhost:3001 ($${GRAFANA_ADMIN_USER:-admin}/$${GRAFANA_ADMIN_PASSWORD:-from .env})"
 	@echo "  Jaeger:         http://localhost:16686"
 
-stop:
-	$(DOCKER_COMPOSE) down
-
 logs:
 	$(DOCKER_COMPOSE) logs -f
+
+logs-api:
+	@tail -f logs/api.log
+
+logs-ingest:
+	@tail -f logs/ingest.log
+
+logs-stream:
+	@tail -f logs/stream.log
 
 test:
 	cd api-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
@@ -82,7 +108,7 @@ kafka-ui:
 		provectuslabs/kafka-ui:latest
 
 topics:
-	@bash scripts/setup.sh --topics-only
+	@bash scripts/create-topics.sh
 
 db-init:
 	@echo "Initializing PostgreSQL..."

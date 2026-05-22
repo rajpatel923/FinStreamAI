@@ -95,6 +95,10 @@ class BaseJob(ABC):
         Return list of (topic, key_bytes, value_bytes) to produce.
         """
 
+    def _get_schema(self, msg: Any) -> str:
+        """Return the Avro schema name for a given message. Override for multi-topic jobs."""
+        return self.input_schema
+
     def _flush_pending(self, now_ms: int) -> None:
         """Called every poll cycle even when no message arrived. Override for windowed jobs."""
 
@@ -153,7 +157,8 @@ class BaseJob(ABC):
 
                 start = time.perf_counter()
                 try:
-                    record = self._serializer.deserialize(self.input_schema, msg.value())
+                    schema = self._get_schema(msg)
+                    record = self._serializer.deserialize(schema, msg.value())
                     outputs = self.process(record, msg)
                     for topic, key_bytes, value_bytes in outputs:
                         self._sink.produce(topic, key_bytes, value_bytes)

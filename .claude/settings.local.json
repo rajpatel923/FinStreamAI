@@ -42,7 +42,26 @@
       "Bash(docker port finstreami-postgres 2>&1 && docker exec finstreami-postgres psql -U finstreami -d finstreami -c \"SELECT version\\(\\)\" 2>&1)",
       "Bash(lsof -i :5432 2>&1 | head -20)",
       "Bash(sleep 8 && PGPASSWORD=finstreami123 psql -h 127.0.0.1 -p 5434 -U finstreami -d finstreami -c \"SELECT version\\(\\)\" 2>&1)",
-      "Bash(lsof -i :5433 2>&1 | head -10)"
+      "Bash(lsof -i :5433 2>&1 | head -10)",
+      "Bash(make test-stream 2>&1 | tail -50)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/stream-processing && python -m pytest tests/ -x -q --tb=short 2>&1 | head -80)",
+      "Bash(python -m pytest tests/ -x -q --tb=short 2>&1 | tail -20)",
+      "Bash(python -m pytest tests/ -q --cov=src --cov-report=term-missing --cov-config=../setup.cfg 2>&1 | tail -40)",
+      "Bash(python -m pytest tests/ -q --cov=src --cov-report=term-missing 2>&1 | tail -40)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI && make test-stream 2>&1 | tail -15)",
+      "Bash(grep -E \"^  [a-z-]+:\" /Users/rajpatel/Documents/GitHub/FinStreamAI/docker-compose.yml | sed 's/:$//')",
+      "Bash(docker compose up -d kafka 2>&1)",
+      "Bash(docker compose down -v --remove-orphans 2>&1)",
+      "Bash(docker inspect finstreamai_kafka_data 2>/dev/null | python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d[0]['Mountpoint']\\)\" 2>/dev/null || echo \"volume not found\")",
+      "Bash(sudo ls /var/lib/docker/volumes/finstreamai_kafka_data/_data/ 2>/dev/null || docker run --rm -v finstreamai_kafka_data:/data alpine ls /data)",
+      "Bash(docker compose down 2>&1 && docker run --rm -v finstreamai_kafka_data:/data alpine sh -c \"rm -rf /data/*\" 2>&1 && echo \"Volume cleared\")",
+      "Bash(docker compose down -v 2>&1 | tail -5)",
+      "Bash(make setup 2>&1)",
+      "Bash(bash -n scripts/start.sh 2>&1 && echo \"Syntax OK\")",
+      "Bash(bash -x scripts/start.sh 2>&1 | head -60)",
+      "Bash(bash -x scripts/start.sh 2>&1 | head -120)",
+      "Bash(bash -x scripts/start.sh 2>&1 | head -50)",
+      "Bash(make start 2>&1)"
     ]
   }
 }

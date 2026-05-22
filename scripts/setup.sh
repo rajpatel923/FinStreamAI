@@ -1,46 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TOPICS_ONLY=${1:-""}
-
-KAFKA_TOPICS=(
-  "market.ticks.raw:50"
-  "market.ticks.clean:50"
-  "market.bars.1min:20"
-  "market.bars.5min:10"
-  "market.bars.15min:5"
-  "market.bars.1hour:3"
-  "technical.indicators:20"
-  "news.articles.raw:10"
-  "news.articles.scored:10"
-  "social.posts.raw:15"
-  "social.sentiment:15"
-  "events.extracted:5"
-  "alerts.anomalies:5"
-  "predictions.signals:10"
-)
-
-create_topics() {
-  echo "Creating Kafka topics..."
-  for entry in "${KAFKA_TOPICS[@]}"; do
-    topic="${entry%%:*}"
-    partitions="${entry##*:}"
-    echo "  Creating topic: $topic ($partitions partitions)"
-    docker exec finstreami-kafka kafka-topics \
-      --bootstrap-server localhost:9092 \
-      --create \
-      --if-not-exists \
-      --topic "$topic" \
-      --partitions "$partitions" \
-      --replication-factor 1 2>/dev/null || true
-  done
-  echo "Kafka topics created."
-}
-
-if [[ "$TOPICS_ONLY" == "--topics-only" ]]; then
-  create_topics
-  exit 0
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "============================================"
 echo " FinStreamAI — Local Development Setup"
@@ -48,7 +9,7 @@ echo "============================================"
 
 # Check prerequisites
 echo "Checking prerequisites..."
-for cmd in docker docker-compose python3 git; do
+for cmd in docker python3 git; do
   if ! command -v $cmd &>/dev/null; then
     echo "ERROR: $cmd is required but not installed."
     exit 1
@@ -71,7 +32,7 @@ fi
 
 # Start infrastructure services
 echo "Starting infrastructure services..."
-$DOCKER_COMPOSE_CMD up -d zookeeper kafka schema-registry postgres timescaledb redis neo4j minio prometheus grafana jaeger
+$DOCKER_COMPOSE_CMD up -d kafka schema-registry postgres timescaledb redis neo4j minio prometheus grafana jaeger
 
 echo "Waiting for services to be healthy..."
 sleep 15
@@ -85,7 +46,7 @@ done
 echo "Kafka is ready."
 
 # Create topics
-create_topics
+bash "$SCRIPT_DIR/create-topics.sh"
 
 echo ""
 echo "============================================"
@@ -93,7 +54,7 @@ echo " Setup complete!"
 echo "============================================"
 echo ""
 echo "Services:"
-echo "  PostgreSQL:     localhost:5432"
+echo "  PostgreSQL:      localhost:5434"
 echo "  TimescaleDB:    localhost:5433"
 echo "  Kafka:          localhost:9092"
 echo "  Schema Registry: http://localhost:8081"
@@ -105,6 +66,7 @@ echo "  Grafana:        http://localhost:3001 (\${GRAFANA_ADMIN_USER:-admin}/\${
 echo "  Jaeger:         http://localhost:16686"
 echo ""
 echo "Next steps:"
-echo "  make api         # Start FastAPI locally"
+echo "  make start       # Start all app services"
+echo "  make health      # Check all service health"
 echo "  make test        # Run tests"
 echo ""

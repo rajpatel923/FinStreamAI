@@ -76,5 +76,38 @@ timescaledb_write_duration_seconds = Histogram(
 )
 
 
+# Redis writes
+redis_writes_total = Counter(
+    "finstreami_stream_redis_writes_total",
+    "Total writes to Redis feature store",
+    ["type"],
+)
+
+redis_write_duration_seconds = Histogram(
+    "finstreami_stream_redis_write_duration_seconds",
+    "Time spent writing to Redis",
+    ["type"],
+    buckets=[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1],
+)
+
+redis_write_errors_total = Counter(
+    "finstreami_stream_redis_write_errors_total",
+    "Total Redis write errors",
+    ["type"],
+)
+
+# Join metrics
+joins_attempted_total = Counter(
+    "finstreami_stream_joins_attempted_total",
+    "Total bar-sentiment join attempts",
+)
+
+joins_with_sentiment = Counter(
+    "finstreami_stream_joins_with_sentiment_total",
+    "Joins that included sentiment data",
+    ["source"],
+)
+
+
 def start_metrics_server(port: int = 8002) -> None:
     start_http_server(port)
