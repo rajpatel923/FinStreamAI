@@ -136,6 +136,14 @@ class Settings(BaseSettings):
     JAEGER_ENDPOINT: str = "http://localhost:14268/api/traces"
     METRICS_PORT: int = 8001
 
+    # ─── AI Services ─────────────────────────────────────────────
+    ANTHROPIC_API_KEY: str = ""
+    AI_SERVICES_PORT: int = 8003
+    CHROMA_PERSIST_DIR: str = "./chroma_store"
+    XGB_RETRAIN_INTERVAL_S: int = 3600
+    XGB_LOOKBACK_DAYS: int = 30
+    AI_MIN_TRAIN_SAMPLES: int = 50
+
     # ─── Stream Processing ────────────────────────────────────────
     STREAM_PROCESSING_GROUP_PREFIX: str = "stream"
     WINDOW_GRACE_PERIOD_MS: int = 30_000

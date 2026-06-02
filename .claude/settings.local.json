@@ -61,7 +61,10 @@
       "Bash(bash -x scripts/start.sh 2>&1 | head -60)",
       "Bash(bash -x scripts/start.sh 2>&1 | head -120)",
       "Bash(bash -x scripts/start.sh 2>&1 | head -50)",
-      "Bash(make start 2>&1)"
+      "Bash(make start 2>&1)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/ai-services && python -m pytest tests/ -v --tb=short 2>&1 | head -120)",
+      "Bash(python -m pytest tests/ -v --tb=short 2>&1 | tail -20)",
+      "Bash(python -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc 2>&1 | tail -45)"
     ]
   }
 }

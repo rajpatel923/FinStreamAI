@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream test test-ingest test-stream lint format api ingest stream kafka-ui topics db-init clean help
+.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai test test-ingest test-stream test-ai lint format api ingest stream ai kafka-ui topics db-init clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -29,6 +29,9 @@ help:
 	@echo "  make test-ingest  Run data-ingestion tests"
 	@echo "  make stream       Start stream-processing pipeline"
 	@echo "  make test-stream  Run stream-processing tests (≥80% coverage)"
+	@echo "  make ai           Start ai-services locally with uvicorn --reload"
+	@echo "  make test-ai      Run ai-services tests (≥80% coverage)"
+	@echo "  make logs-ai      Tail ai-services log file"
 	@echo "  make clean        Stop services, remove volumes, prune"
 
 setup:
@@ -74,6 +77,9 @@ logs-ingest:
 logs-stream:
 	@tail -f logs/stream.log
 
+logs-ai:
+	@tail -f logs/ai.log
+
 test:
 	cd api-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
@@ -84,6 +90,7 @@ lint:
 	cd api-services && $(PYTHON) -m ruff check src/ tests/ && $(PYTHON) -m black --check src/ tests/
 	cd data-ingestion && $(PYTHON) -m ruff check src/ && $(PYTHON) -m black --check src/
 	cd stream-processing && $(PYTHON) -m ruff check src/ && $(PYTHON) -m black --check src/
+	cd ai-services && $(PYTHON) -m ruff check src/ tests/ && $(PYTHON) -m black --check src/ tests/
 
 format:
 	cd api-services && $(PYTHON) -m black src/ tests/ && $(PYTHON) -m isort src/ tests/
@@ -98,8 +105,14 @@ ingest:
 stream:
 	cd stream-processing && $(PYTHON) -m src.main
 
+ai:
+	cd ai-services && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8003
+
 test-stream:
 	cd stream-processing && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80
+
+test-ai:
+	cd ai-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
 
 kafka-ui:
 	$(DOCKER_COMPOSE) run --rm -p 8080:8080 \

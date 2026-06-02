@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "SocialPost",
+  "fields": [
+    {"name": "post_id", "type": "string"},
+    {"name": "platform", "type": "string"},
+    {"name": "subreddit", "type": ["null", "string"], "default": null},
+    {"name": "title", "type": "string"},
+    {"name": "body", "type": ["null", "string"], "default": null},
+    {"name": "author", "type": ["null", "string"], "default": null},
+    {"name": "score", "type": "int", "default": 0},
+    {"name": "num_comments", "type": "int", "default": 0},
+    {"name": "created_ms", "type": "long"},
+    {"name": "symbols", "type": {"type": "array", "items": "string"}, "default": []},
+    {"name": "url", "type": ["null", "string"], "default": null},
+    {"name": "is_mock", "type": "boolean", "default": false}
+  ]
+}
