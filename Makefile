@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai logs-lake test test-ingest test-stream test-ai test-lake lint format api ingest stream ai lake kafka-ui topics db-init lake-init timescaledb-optimize neo4j-init clean help
+.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai logs-lake logs-gateway test test-ingest test-stream test-ai test-lake test-gateway lint format api ingest stream ai lake gateway kafka-ui topics db-init lake-init timescaledb-optimize neo4j-init migrate clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -38,6 +38,10 @@ help:
 	@echo "  make timescaledb-optimize  Apply continuous aggregates + compression SQL"
 	@echo "  make neo4j-init   Run init-neo4j.cypher constraints + indexes"
 	@echo "  make logs-lake    Tail data-lake log file"
+	@echo "  make gateway      Start api-gateway locally with uvicorn --reload"
+	@echo "  make test-gateway Run api-gateway tests (≥85% coverage)"
+	@echo "  make logs-gateway Tail api-gateway log file"
+	@echo "  make migrate      Run Alembic migrations (api-gateway)"
 	@echo "  make clean        Stop services, remove volumes, prune"
 
 setup:
@@ -89,6 +93,9 @@ logs-ai:
 logs-lake:
 	@tail -f logs/lake.log
 
+logs-gateway:
+	@tail -f logs/gateway.log
+
 test:
 	cd api-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
@@ -100,6 +107,7 @@ lint:
 	cd data-ingestion && $(PYTHON) -m ruff check src/ && $(PYTHON) -m black --check src/
 	cd stream-processing && $(PYTHON) -m ruff check src/ && $(PYTHON) -m black --check src/
 	cd ai-services && $(PYTHON) -m ruff check src/ tests/ && $(PYTHON) -m black --check src/ tests/
+	cd api-gateway && $(PYTHON) -m ruff check src/ tests/ && $(PYTHON) -m black --check src/ tests/
 
 format:
 	cd api-services && $(PYTHON) -m black src/ tests/ && $(PYTHON) -m isort src/ tests/
@@ -128,6 +136,15 @@ lake:
 
 test-lake:
 	cd data-lake && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
+
+gateway:
+	cd api-gateway && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8005
+
+test-gateway:
+	cd api-gateway && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc
+
+migrate:
+	cd api-gateway && $(PYTHON) -m alembic upgrade head
 
 lake-init:
 	@echo "Initializing MinIO buckets..."

@@ -229,6 +229,40 @@ services:
       - "8004:8004"
     restart: unless-stopped
 
+  # ─── API Gateway ─────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: finstreami-api-gateway
+    networks: [finstreami-network]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: 5432
+      AI_SERVICES_URL: http://ai-services:8003
+      DATA_LAKE_URL: http://data-lake:8004
+      GATEWAY_PORT: 8005
+    ports:
+      - "8005:8005"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   # ─── Stream Processing ────────────────────────────────────────
   stream-processing:
     build:

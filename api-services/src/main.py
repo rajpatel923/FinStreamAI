@@ -10,6 +10,7 @@ from prometheus_client import make_asgi_app
 from src.core.config import settings
 from src.core.database import close_db, init_db
 from src.core.logging import configure_logging, get_logger
+from src.middleware.auth import JWTAuthMiddleware
 
 configure_logging()
 logger = get_logger(__name__)
@@ -35,6 +36,7 @@ app = FastAPI(
 
 # Middleware
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+app.add_middleware(JWTAuthMiddleware, secret_key=settings.JWT_SECRET_KEY)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,

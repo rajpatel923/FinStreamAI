@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
 
 from src.config import settings
+from src.middleware.auth import JWTAuthMiddleware
 from src.cache.redis_cache import RedisCache
 from src.connectors.kafka_sink import KafkaSinkConsumer
 from src.graph.knowledge_graph import KnowledgeGraph
@@ -112,6 +113,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(JWTAuthMiddleware, secret_key=settings.JWT_SECRET_KEY)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS or ["*"],

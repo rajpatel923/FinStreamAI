@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
 
 from src.config import settings
+from src.middleware.auth import JWTAuthMiddleware
 from src.consumers.events_consumer import EventsConsumer
 from src.consumers.sentiment_consumer import SentimentConsumer
 from src.embeddings.chroma_service import ChromaService
@@ -83,6 +84,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(JWTAuthMiddleware, secret_key=settings.JWT_SECRET_KEY)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS or ["*"],

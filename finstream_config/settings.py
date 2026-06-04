@@ -144,6 +144,40 @@ class Settings(BaseSettings):
     XGB_LOOKBACK_DAYS: int = 30
     AI_MIN_TRAIN_SAMPLES: int = 50
 
+    # ─── API Gateway ─────────────────────────────────────────────
+    GATEWAY_PORT: int = 8005
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    REFRESH_TOKEN_ABSOLUTE_MAX_DAYS: int = 30
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    OAUTH_REDIRECT_BASE_URL: str = "http://localhost:8005"
+    SENDGRID_API_KEY: str = ""
+    SENDGRID_FROM_EMAIL: str = "noreply@finstreami.io"
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""
+    RATE_LIMIT_FREE_PER_MINUTE: int = 60
+    RATE_LIMIT_PREMIUM_PER_MINUTE: int = 600
+    RATE_LIMIT_ADMIN_PER_MINUTE: int = 6000
+    RATE_LIMIT_UNAUTH_PER_MINUTE: int = 20
+    RATE_LIMIT_LOGIN_PER_MINUTE: int = 5
+    RATE_LIMIT_BACKTEST_PER_HOUR: int = 5
+    LOGIN_MAX_ATTEMPTS: int = 10
+    LOCKOUT_DURATION_MINUTES: int = 15
+    FREE_TIER_MAX_ALERTS: int = 3
+    FREE_TIER_MARKET_DATA_HOURS: int = 24
+    FREE_TIER_MAX_SYMBOLS: int = 10
+    PREMIUM_EXPORT_MAX_BYTES: int = 1_073_741_824
+    EXPORT_PRESIGNED_URL_EXPIRES_S: int = 3600
+    AI_SERVICES_URL: str = "http://localhost:8003"
+    DATA_LAKE_URL: str = "http://localhost:8004"
+    OTEL_ENABLED: bool = False
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://localhost:4318"
+    OTEL_SERVICE_NAME: str = "api-gateway"
+
     # ─── Data Lake ───────────────────────────────────────────────
     MINIO_ENDPOINT: str = "http://localhost:9000"
     MINIO_ROOT_USER: str = "minioadmin"

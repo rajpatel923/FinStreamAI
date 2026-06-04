@@ -40,6 +40,12 @@ jobs:
       - name: Black — stream-processing
         run: black --check stream-processing/src/
 
+      - name: Ruff — api-gateway
+        run: ruff check api-gateway/src/ api-gateway/tests/
+
+      - name: Black — api-gateway
+        run: black --check api-gateway/src/ api-gateway/tests/
+
   test-api:
     name: Test API Services (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -123,11 +129,53 @@ jobs:
           name: stream-coverage-report
           path: stream-processing/coverage.xml
 
+  test-gateway:
+    name: Test API Gateway
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: api-gateway/requirements.txt
+
+      - name: Install dependencies
+        working-directory: api-gateway
+        run: pip install -r requirements.txt aiosqlite
+
+      - name: Run tests with coverage
+        working-directory: api-gateway
+        env:
+          DEBUG: "True"
+          JWT_SECRET_KEY: "test_secret_key_for_ci_at_least_32_chars"
+          POSTGRES_HOST: localhost
+          TIMESCALEDB_HOST: localhost
+          REDIS_HOST: localhost
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+        run: |
+          python -m pytest tests/ -v \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=85 \
+            --cov-config=.coveragerc
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gateway-coverage-report
+          path: api-gateway/coverage.xml
+
   build:
     name: Docker Build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    needs: [lint, test-api, test-stream]
+    needs: [lint, test-api, test-stream, test-gateway]
 
     steps:
       - uses: actions/checkout@v4
@@ -160,5 +208,15 @@ jobs:
           file: stream-processing/Dockerfile
           push: false
           tags: finstreami/stream-processing:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build api-gateway image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: api-gateway/Dockerfile
+          push: false
+          tags: finstreami/api-gateway:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
