@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     XGB_LOOKBACK_DAYS: int = 30
     AI_MIN_TRAIN_SAMPLES: int = 50
 
+    # ─── Data Lake ───────────────────────────────────────────────
+    MINIO_ENDPOINT: str = "http://localhost:9000"
+    MINIO_ROOT_USER: str = "minioadmin"
+    MINIO_ROOT_PASSWORD: str = "minioadmin123"
+    DATALAKE_BUCKET_NAME: str = "finstreami-datalake"
+    DATA_LAKE_METRICS_PORT: int = 8004
+
     # ─── Stream Processing ────────────────────────────────────────
     STREAM_PROCESSING_GROUP_PREFIX: str = "stream"
     WINDOW_GRACE_PERIOD_MS: int = 30_000

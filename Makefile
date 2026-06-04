@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai test test-ingest test-stream test-ai lint format api ingest stream ai kafka-ui topics db-init clean help
+.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai logs-lake test test-ingest test-stream test-ai test-lake lint format api ingest stream ai lake kafka-ui topics db-init lake-init timescaledb-optimize neo4j-init clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -32,6 +32,12 @@ help:
 	@echo "  make ai           Start ai-services locally with uvicorn --reload"
 	@echo "  make test-ai      Run ai-services tests (≥80% coverage)"
 	@echo "  make logs-ai      Tail ai-services log file"
+	@echo "  make lake         Start data-lake service locally with uvicorn --reload"
+	@echo "  make test-lake    Run data-lake tests (≥80% coverage)"
+	@echo "  make lake-init    Init MinIO buckets + Neo4j schema"
+	@echo "  make timescaledb-optimize  Apply continuous aggregates + compression SQL"
+	@echo "  make neo4j-init   Run init-neo4j.cypher constraints + indexes"
+	@echo "  make logs-lake    Tail data-lake log file"
 	@echo "  make clean        Stop services, remove volumes, prune"
 
 setup:
@@ -80,6 +86,9 @@ logs-stream:
 logs-ai:
 	@tail -f logs/ai.log
 
+logs-lake:
+	@tail -f logs/lake.log
+
 test:
 	cd api-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
@@ -113,6 +122,36 @@ test-stream:
 
 test-ai:
 	cd ai-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
+
+lake:
+	cd data-lake && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8004
+
+test-lake:
+	cd data-lake && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
+
+lake-init:
+	@echo "Initializing MinIO buckets..."
+	@bash scripts/init-minio.sh
+	@echo "Initializing Neo4j schema..."
+	@$(MAKE) neo4j-init
+
+timescaledb-optimize:
+	@echo "Applying TimescaleDB optimizations..."
+	docker exec finstreami-timescaledb psql -U timescale -d timescaledb -f /docker-entrypoint-initdb.d/optimize-timescaledb.sql || \
+	docker exec finstreami-timescaledb psql -U $${TIMESCALEDB_USER:-timescale} -d $${TIMESCALEDB_DB:-timescaledb} \
+		-c "$$(cat scripts/optimize-timescaledb.sql)"
+	@echo "TimescaleDB optimization complete."
+
+neo4j-init:
+	@echo "Running Neo4j schema init..."
+	docker exec finstreami-neo4j cypher-shell \
+		-u $${NEO4J_USER:-neo4j} \
+		-p $${NEO4J_PASSWORD:-finstreami123} \
+		-f /var/lib/neo4j/scripts/init-neo4j.cypher 2>/dev/null || \
+	cat scripts/init-neo4j.cypher | docker exec -i finstreami-neo4j cypher-shell \
+		-u $${NEO4J_USER:-neo4j} \
+		-p $${NEO4J_PASSWORD:-finstreami123}
+	@echo "Neo4j schema init complete."
 
 kafka-ui:
 	$(DOCKER_COMPOSE) run --rm -p 8080:8080 \
