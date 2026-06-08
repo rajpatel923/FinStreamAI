@@ -17,6 +17,11 @@ KAFKA_TOPICS=(
   "events.extracted:5"
   "alerts.anomalies:5"
   "predictions.signals:10"
+  # Phase 7 — Agent service topics
+  "watchlist.signals:5"
+  "agent.recommendations:5"
+  "trade.orders.submitted:5"
+  "trade.orders.filled:5"
 )
 
 echo "Creating Kafka topics..."

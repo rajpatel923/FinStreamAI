@@ -1,0 +1,15 @@
+[run]
+source = src
+omit =
+    src/main.py
+    src/__init__.py
+    src/services/broker_service.py
+    src/services/signal_router.py
+    src/services/monitoring_loop.py
+    src/tools/market_tools.py
+    src/tools/research_tools.py
+    src/tools/broker_tools.py
+
+[report]
+show_missing = True
+skip_empty = True

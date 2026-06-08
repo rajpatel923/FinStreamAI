@@ -263,6 +263,40 @@ services:
       timeout: 10s
       retries: 5
 
+  # ─── Agent Service ───────────────────────────────────────────
+  agent-service:
+    build:
+      context: .
+      dockerfile: agent-service/Dockerfile
+    container_name: finstreami-agent-service
+    networks: [finstreami-network]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      api-gateway:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AI_SERVICES_URL: http://ai-services:8003
+      API_GATEWAY_INTERNAL_URL: http://api-gateway:8005
+      AGENT_SERVICE_PORT: 8006
+    ports:
+      - "8006:8006"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   # ─── Stream Processing ────────────────────────────────────────
   stream-processing:
     build:

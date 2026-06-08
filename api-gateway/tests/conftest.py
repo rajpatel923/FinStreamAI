@@ -19,6 +19,7 @@ from src.core.config import settings
 from src.core.security import create_access_token, hash_password
 from src.models.user import User
 from src.models.alert import Alert, ExportJob
+from src.models.watchlist import WatchlistItem, UserPreference  # noqa: F401 — ensure tables created
 
 # ─── In-memory SQLite engine for tests ───────────────────────────────────────
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
@@ -124,6 +125,7 @@ def mock_redis():
     mock.delete = AsyncMock(return_value=1)
     mock.smembers = AsyncMock(return_value=set())
     mock.sadd = AsyncMock(return_value=1)
+    mock.srem = AsyncMock(return_value=1)
     mock.expire = AsyncMock(return_value=True)
     mock.aclose = AsyncMock()
     return mock

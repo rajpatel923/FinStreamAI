@@ -4,7 +4,7 @@
 ---
 
 ## Project Overview
-**Total Duration:** 16 weeks (4 months)  
+**Total Duration:** 18 weeks (4.5 months)
 **Team Size Assumption:** 1-3 developers  
 **Methodology:** Agile with 2-week sprints  
 **Deliverable:** Production-ready financial streaming platform
@@ -1262,7 +1262,595 @@
 
 ---
 
-# PHASE 7: Frontend Application (Weeks 13-14)
+# PHASE 7: Personalization, Watchlists & Agentic AI Layer (Weeks 13-14)
+**Goal:** Every user gets a personalized AI-powered experience — their own watchlist, portfolio tracking, proactive stock monitoring, a conversational AI advisor with full context of their holdings, and (for premium users) automated paper trading with strict risk guardrails.
+
+---
+
+## Architectural Decisions
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Agent framework | LangGraph (langgraph==0.2.0) | Stateful multi-step graphs with cycles, persistence, and human-in-the-loop; native Python; works with Anthropic Claude |
+| Base model | claude-sonnet-4-6 (Anthropic) | Already integrated in ai-services; best balance of reasoning quality and speed for financial advice |
+| Agent state persistence | LangGraph PostgreSQL checkpointer | Conversation threads survive service restarts; reuses existing PostgreSQL instance |
+| Brokerage integration | Alpaca Markets (paper trading first) | Free paper trading API, REST + WebSocket, well-documented Python SDK (alpaca-py) |
+| Signal routing | Kafka consumer with Redis watchlist cache | Avoids per-message DB lookup; Redis TTL = 5 min; consistent with existing stream-processing pattern |
+| Portfolio P&L | Real-time from Redis (latest price) + DB cost basis | Sub-second P&L without TimescaleDB query per request |
+| Broker key storage | AES-256 encrypted at rest (cryptography lib) | Never store Alpaca keys in plaintext; decrypt only at order submission time |
+| Auto-trading default | Paper trading ON, live trading OFF | Users must explicitly opt in to live trading; reduces risk of accidental real money trades |
+| Proactive monitoring | APScheduler (hourly, per-user) | Simple, embedded scheduler; no additional infrastructure; backs off if no watchlist items |
+| New service | agent-service/ (port 8006) | Clean separation from api-gateway; agents have their own dependency set and scaling profile |
+
+---
+
+## New Service: `agent-service/` (port 8006)
+
+```
+agent-service/
+├── requirements.txt
+├── Dockerfile
+├── pytest.ini
+├── .coveragerc
+├── src/
+│   ├── __init__.py
+│   ├── main.py                        # FastAPI app, lifespan, APScheduler wiring
+│   ├── core/
+│   │   ├── config.py                  # ANTHROPIC_MODEL, ALPACA_*, risk thresholds
+│   │   ├── database.py                # Async SQLAlchemy (reuses PostgreSQL)
+│   │   └── dependencies.py            # JWT validation (shared secret from api-gateway)
+│   ├── agents/
+│   │   ├── supervisor.py              # LangGraph StateGraph: routes intent to sub-agents
+│   │   ├── portfolio_advisor.py       # Conversational agent: tools + Claude claude-sonnet-4-6
+│   │   ├── watchlist_monitor.py       # Proactive monitoring: hourly scan, AI summary
+│   │   └── trade_executor.py          # Risk-gated trade placement via Alpaca
+│   ├── tools/
+│   │   ├── market_tools.py            # get_market_data, get_signals, get_sentiment
+│   │   ├── portfolio_tools.py         # get_positions, calculate_pnl, get_watchlist
+│   │   ├── broker_tools.py            # submit_order, get_order_status, cancel_order
+│   │   └── research_tools.py          # get_news_events, search_knowledge_graph
+│   ├── memory/
+│   │   ├── conversation_store.py      # Save/load agent_messages from PostgreSQL
+│   │   └── checkpointer.py            # LangGraph PostgreSQL checkpointer setup
+│   ├── api/v1/
+│   │   ├── agent.py                   # POST /agent/chat, GET /agent/sessions
+│   │   ├── watchlist.py               # CRUD /watchlist
+│   │   ├── portfolio.py               # GET /portfolio, POST /portfolio/positions
+│   │   └── trading.py                 # POST /trading/orders, GET /trading/orders, DELETE /trading/auto
+│   └── services/
+│       ├── monitoring_loop.py         # APScheduler: hourly watchlist signal scan
+│       ├── broker_service.py          # Alpaca REST + WebSocket client
+│       ├── signal_router.py           # Kafka consumer: routes predictions.signals → watchlist.signals
+│       └── digest_service.py          # Daily/weekly email digest generator
+└── tests/
+    ├── conftest.py
+    ├── test_agents.py
+    ├── test_watchlist.py
+    ├── test_portfolio.py
+    ├── test_trading.py
+    └── test_monitoring.py
+```
+
+---
+
+## Database Schema (new tables — Alembic migration 002)
+
+```sql
+-- User watchlists
+CREATE TABLE watchlist_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol VARCHAR(20) NOT NULL,
+    notes TEXT,
+    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, symbol)
+);
+CREATE INDEX idx_watchlist_user ON watchlist_items(user_id);
+
+-- Portfolio positions (manual tracking + auto-updated from broker fills)
+CREATE TABLE portfolio_positions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol VARCHAR(20) NOT NULL,
+    quantity DECIMAL(18, 8) NOT NULL,
+    avg_cost_basis DECIMAL(18, 8) NOT NULL,
+    is_open BOOLEAN NOT NULL DEFAULT TRUE,
+    source VARCHAR(20) NOT NULL DEFAULT 'manual',  -- manual | alpaca_paper | alpaca_live
+    opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    closed_at TIMESTAMPTZ,
+    UNIQUE(user_id, symbol) DEFERRABLE INITIALLY DEFERRED
+);
+CREATE INDEX idx_positions_user ON portfolio_positions(user_id, is_open);
+
+-- Trade orders (automated and manual)
+CREATE TABLE trade_orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol VARCHAR(20) NOT NULL,
+    side VARCHAR(10) NOT NULL,                     -- buy | sell
+    quantity DECIMAL(18, 8) NOT NULL,
+    order_type VARCHAR(20) NOT NULL,               -- market | limit | stop
+    limit_price DECIMAL(18, 8),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | submitted | filled | cancelled | rejected
+    broker_order_id VARCHAR(255),
+    filled_price DECIMAL(18, 8),
+    filled_at TIMESTAMPTZ,
+    agent_reasoning TEXT,                          -- why the agent placed this trade
+    risk_score DECIMAL(5, 4),                      -- pre-trade risk check score (0.0–1.0)
+    is_paper BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_orders_user ON trade_orders(user_id, created_at DESC);
+
+-- Agent conversation sessions
+CREATE TABLE agent_conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    agent_type VARCHAR(50) NOT NULL,               -- portfolio_advisor | watchlist_monitor
+    thread_id VARCHAR(255) NOT NULL UNIQUE,        -- LangGraph thread ID
+    title VARCHAR(255),                            -- auto-generated from first message
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_active_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Agent message history
+CREATE TABLE agent_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,                     -- user | assistant | tool
+    content TEXT NOT NULL,
+    tool_calls JSONB,                              -- tool invocations made by assistant
+    metadata JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_messages_conv ON agent_messages(conversation_id, created_at ASC);
+
+-- Per-user investment preferences and auto-trading config
+CREATE TABLE user_preferences (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    risk_tolerance VARCHAR(20) NOT NULL DEFAULT 'moderate',       -- conservative | moderate | aggressive
+    investment_style VARCHAR(30) NOT NULL DEFAULT 'balanced',     -- growth | value | dividend | balanced
+    max_position_size_pct DECIMAL(5, 2) NOT NULL DEFAULT 10.0,    -- max % portfolio per position
+    auto_trading_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    auto_trading_max_daily_loss_pct DECIMAL(5, 2) NOT NULL DEFAULT 2.0,
+    auto_trading_confirmation_threshold_usd DECIMAL(12, 2) NOT NULL DEFAULT 500.0,
+    broker_api_key_encrypted TEXT,                                 -- AES-256 encrypted Alpaca key
+    broker_api_secret_encrypted TEXT,
+    broker_paper_trading BOOLEAN NOT NULL DEFAULT TRUE,
+    notification_digest_frequency VARCHAR(20) NOT NULL DEFAULT 'daily',  -- realtime | daily | weekly
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+## Agent Architecture
+
+```
+User Message (POST /agent/chat)
+          |
+          v
+   SupervisorAgent (LangGraph StateGraph)
+   - Classifies intent: question | trade_request | portfolio_review | watchlist_query
+   - Routes to appropriate sub-agent node
+   - Maintains shared state across nodes
+          |
+     ┌────┴───────────────────┐
+     |                        |
+     v                        v
+PortfolioAdvisorAgent     TradeExecutionAgent (premium only)
+- Tools:                  - Tools:
+  get_watchlist             check_pre_trade_risk
+  get_positions             submit_order
+  get_market_data           get_order_status
+  get_sentiment_score       cancel_order
+  get_signals               get_account_info
+  get_news_events         - Pre-flight checks (ALL must pass):
+  get_risk_metrics          1. auto_trading_enabled == TRUE
+  search_knowledge_graph    2. daily loss limit not exceeded
+- Persona: Warm but         3. position size cap respected
+  precise financial         4. AI risk score < 0.7
+  advisor; always           5. human confirmation if > threshold USD
+  references actual       - Records agent_reasoning in trade_orders
+  user holdings           - Notifies user on fill via WebSocket + email
+```
+
+### WatchlistMonitorAgent (background, not conversational)
+
+Runs on APScheduler every 60 minutes:
+1. Fetch all users with non-empty watchlists (batch query)
+2. For each user, pull latest signals from Redis for their symbols
+3. Filter to signals with significance score > threshold
+4. Generate a 2–3 sentence AI summary per symbol using Claude (batch API call)
+5. Push summary to user via WebSocket if connected (immediate)
+6. Queue for daily digest email if not connected
+7. Never sends redundant alerts — tracks last-notified signal timestamp per user+symbol in Redis
+
+---
+
+## New Kafka Topics
+
+| Topic | Partitions | Producer | Consumer |
+|---|---|---|---|
+| watchlist.signals | 5 | signal_router.py (agent-service) | WatchlistMonitorAgent, WebSocket bridge |
+| agent.recommendations | 5 | WatchlistMonitorAgent | WebSocket bridge, digest_service |
+| trade.orders.submitted | 5 | TradeExecutionAgent | broker_service (order sync) |
+| trade.orders.filled | 5 | broker_service (Alpaca WS) | trade_orders table updater, notification |
+
+---
+
+## RBAC Updates
+
+| Endpoint | free_user | premium_user | admin |
+|---|---|---|---|
+| Watchlist CRUD (max 5 symbols) | yes | yes (unlimited) | yes |
+| Portfolio position tracking | yes | yes | yes |
+| Agent chat (10 messages/day) | yes | yes (unlimited) | yes |
+| Agent conversation history | yes | yes | yes |
+| Automated trading (paper) | no | yes | yes |
+| Automated trading (live) | no | yes (explicit opt-in) | yes |
+| Trading order history | no | yes | yes |
+
+---
+
+## Risk Guardrails — Automated Trading (Non-Negotiable)
+
+All checks run in sequence before any order is submitted. If any check fails, the trade is blocked and the user is notified with the reason.
+
+| Check | Condition to Block | Action on Fail |
+|---|---|---|
+| Feature gate | user.role != premium_user | Return 403 |
+| Kill switch | auto_trading_enabled == FALSE | Return 403, tell user to enable in preferences |
+| Daily loss cap | Today's realized + unrealized loss > max_daily_loss_pct × portfolio_value | Pause all auto-trading for 24h, notify user |
+| Position size | New position would exceed max_position_size_pct of portfolio | Reduce quantity to cap or reject |
+| AI risk score | Claude risk evaluation returns score ≥ 0.7 | Block trade, present reasoning to user |
+| Confirmation threshold | Order USD value > auto_trading_confirmation_threshold_usd | Pause, send confirmation request to user via WebSocket; 10-min timeout or auto-cancel |
+| Paper mode | broker_paper_trading == TRUE | Route to paper endpoint (never to live even if keys present) |
+
+All blocked trades are logged to trade_orders with status='rejected' and agent_reasoning explaining which check failed.
+
+---
+
+## Week 13: Personalization Foundation
+
+### Sprint Objectives
+- [ ] Watchlist CRUD (add/remove/list symbols)
+- [ ] Portfolio position tracking with P&L
+- [ ] User preferences and investment profile
+- [ ] Personalized signal routing via Kafka
+- [ ] Agent service scaffold with LangGraph + conversation memory
+
+### Detailed Tasks
+
+#### Day 85-86: Database & Watchlist API
+- **Alembic Migration 002**
+  - watchlist_items table
+  - portfolio_positions table
+  - trade_orders table
+  - agent_conversations and agent_messages tables
+  - user_preferences table
+
+- **Watchlist Endpoints (api-gateway)**
+  - POST /api/v1/watchlist — add symbol (free: max 5, premium: unlimited)
+  - GET /api/v1/watchlist — list user's symbols with latest price + sentiment
+  - DELETE /api/v1/watchlist/{symbol} — remove symbol
+  - Watchlist symbols cached in Redis: watchlist:{user_id} (SET, TTL 5 min)
+
+- **User Preferences Endpoints (api-gateway)**
+  - GET /api/v1/users/me/preferences — fetch investment profile
+  - PUT /api/v1/users/me/preferences — update risk tolerance, style, notifications
+  - No auto-trading config via this endpoint (separate protected endpoint)
+
+#### Day 87-88: Portfolio Tracking & Signal Routing
+- **Portfolio Endpoints (agent-service)**
+  - POST /api/v1/portfolio/positions — add/update position (symbol, quantity, cost basis)
+  - GET /api/v1/portfolio/positions — list all positions with real-time P&L
+  - DELETE /api/v1/portfolio/positions/{symbol} — close position
+  - GET /api/v1/portfolio/summary — total value, total P&L, allocation by symbol
+  - P&L calculation: (latest_price_from_redis - avg_cost_basis) × quantity
+
+- **WatchlistSignalRouter (agent-service Kafka consumer)**
+  - Consumes: predictions.signals, alerts.anomalies, news.articles.scored
+  - For each message: resolve symbol → look up which users have it in their watchlist (Redis)
+  - Publish per-user message to watchlist.signals topic (key = user_id)
+  - Avoids DB lookup per message: watchlist Redis SET queried only on cache miss
+  - Graceful degradation: if Redis unavailable, falls back to broadcast (not per-user)
+
+#### Day 89-90: Agent Service Foundation
+- **agent-service/ project setup**
+  - FastAPI app with JWT validation middleware (shared secret from api-gateway)
+  - LangGraph PostgreSQL checkpointer (stores agent state between calls)
+  - ConversationStore: save/load messages from agent_messages table
+
+- **PortfolioAdvisorAgent (v1 — no trading)**
+  - LangGraph StateGraph with tool nodes
+  - Tools implemented: get_watchlist, get_positions, get_market_data, get_sentiment_score, get_signals, get_news_events, get_risk_metrics
+  - System prompt: knows user's risk tolerance, investment style, actual holdings
+  - Streaming support: yields tokens as Claude generates them
+
+- **POST /api/v1/agent/chat**
+  - Creates or resumes LangGraph thread (thread_id from client or auto-generated)
+  - Streams response via Server-Sent Events (SSE)
+  - Saves conversation to agent_messages table
+
+#### Day 91: Proactive Monitoring Loop
+- **WatchlistMonitorAgent (APScheduler, hourly)**
+  - Query: all users with ≥1 watchlist item and notification_digest_frequency = 'realtime'
+  - Pull latest signals per symbol from Redis (feature store keys)
+  - Filter: only signals changed since last notification (track in Redis: monitor:last_notified:{user_id}:{symbol})
+  - Generate summary via Claude: "Here is what's happening with your AAPL position: ..."
+  - Route to user via WebSocket (if connected) or queue to digest
+
+- **DigestService**
+  - Runs daily at configurable UTC time (default 07:00)
+  - Aggregates queued monitoring summaries per user
+  - Generates a styled HTML email with watchlist overview
+  - Sends via existing notification_service (SendGrid)
+
+### Week 13 Deliverables
+- ✅ Watchlist CRUD working with Redis cache
+- ✅ Portfolio positions tracked with real-time P&L
+- ✅ User preferences stored and retrievable
+- ✅ Personalized signal routing via Kafka
+- ✅ PortfolioAdvisorAgent responds to questions about user's stocks
+- ✅ Proactive monitoring pushes updates via WebSocket
+- ✅ Daily digest email sent for offline users
+
+### Week 13 Definition of Done
+- [ ] User adds AAPL to watchlist → next WebSocket message only contains AAPL-relevant signals
+- [ ] User asks agent "How is my portfolio doing?" → agent returns actual P&L, not generic response
+- [ ] Proactive monitor fires hourly and pushes summary for at least one symbol per user
+- [ ] Daily digest email received with correct watchlist content
+- [ ] All new endpoints return 401 without JWT, 200 with valid JWT
+
+---
+
+## Week 14: Agentic AI + Automated Trading
+
+### Sprint Objectives
+- [ ] Conversational agent API with streaming responses
+- [ ] Alpaca paper trading integration
+- [ ] Pre-trade risk guardrail pipeline
+- [ ] Automated trading enable/disable controls
+- [ ] Full test coverage for agents and trading flows
+
+### Detailed Tasks
+
+#### Day 92-93: Conversational Agent API
+- **SupervisorAgent (LangGraph StateGraph)**
+  - Intent classification node: question | trade_request | portfolio_review | watchlist_update
+  - Conditional edge routing based on intent
+  - Shared state: user_id, watchlist, positions, conversation_history
+  - Human-in-the-loop node for trade confirmations (waits for user response via WebSocket)
+
+- **Agent Session Endpoints**
+  - GET /api/v1/agent/sessions — list user's conversation threads (paginated)
+  - GET /api/v1/agent/sessions/{thread_id} — get thread metadata
+  - GET /api/v1/agent/sessions/{thread_id}/messages — full message history
+  - DELETE /api/v1/agent/sessions/{thread_id} — delete conversation
+
+- **Streaming Response**
+  - POST /api/v1/agent/chat returns text/event-stream (SSE)
+  - Each Claude token streamed as a data: chunk
+  - Tool call results included as structured events
+  - Client can cancel via DELETE /api/v1/agent/chat/{thread_id}
+
+#### Day 94-95: Broker Integration & Trade Execution
+- **BrokerService (Alpaca)**
+  - REST client: account info, list positions, submit order, get order, cancel order
+  - WebSocket client: listens for order fill events from Alpaca stream
+  - On fill event: update trade_orders.status, update portfolio_positions, send fill notification
+  - Paper mode: uses https://paper-api.alpaca.markets (configurable via ALPACA_BASE_URL)
+  - Keys: decrypted from user_preferences.broker_api_key_encrypted at call time; never cached
+
+- **TradeExecutionAgent**
+  - Activated only when SupervisorAgent classifies intent as trade_request AND user.role = premium
+  - Runs pre-trade risk pipeline (all 7 checks in sequence — see Risk Guardrails section)
+  - If risk check passes and value < confirmation_threshold: submits immediately
+  - If value ≥ confirmation_threshold: publishes confirmation request via WebSocket; awaits pong with "confirm"/"cancel"; 10-minute timeout auto-cancels
+  - Stores agent_reasoning in trade_orders before submission
+  - Returns structured response: order summary, risk score, reasoning
+
+- **Trading Endpoints**
+  - POST /api/v1/trading/preferences — configure Alpaca keys (encrypted storage), enable paper/live
+  - POST /api/v1/trading/orders — manually request a trade (goes through same risk pipeline)
+  - GET /api/v1/trading/orders — paginated order history with status
+  - GET /api/v1/trading/orders/{order_id} — order detail with reasoning
+  - DELETE /api/v1/trading/auto — instant kill switch: set auto_trading_enabled=FALSE
+
+#### Day 96: Risk Controls & Observability
+- **Daily Loss Tracker**
+  - Redis key: trade:daily_loss:{user_id}:{YYYY-MM-DD} (INCRBYFLOAT, TTL = 48h)
+  - Updated on every fill event from Alpaca WebSocket
+  - Checked at start of each risk pipeline
+  - Auto-pauses trading if threshold exceeded; logs event; notifies user
+
+- **Trading Metrics (Prometheus)**
+  - trades_submitted_total (labels: user_role, symbol, side, is_paper)
+  - trades_filled_total
+  - trades_rejected_total (labels: rejection_reason)
+  - agent_risk_score_histogram
+  - daily_loss_pct_gauge (per user role tier)
+
+- **Audit Logging**
+  - Every agent decision (tool call, routing choice, trade reasoning) logged to structlog with user_id, thread_id, correlation_id
+  - trade_orders table is the immutable audit trail for all trading activity
+
+#### Day 97: Integration Tests & End-to-End Validation
+- **Test Scenarios**
+  - User adds AAPL to watchlist → signal router publishes to watchlist.signals → monitor picks up → pushes summary
+  - User asks "Should I buy TSLA?" → SupervisorAgent routes to PortfolioAdvisorAgent → agent fetches signals + news + positions → generates personalized recommendation
+  - User says "Buy 10 shares of AAPL" → TradeExecutionAgent activates → risk checks → confirmation request → user confirms → paper order submitted → fill notification received
+  - User exceeds daily loss limit → next trade attempt blocked → notification sent
+  - User hits kill switch → auto_trading_enabled=FALSE → trade attempt returns 403
+
+- **Mock Strategy**
+  - Alpaca API mocked with httpx for all trading tests
+  - LangGraph agent mocked at tool-call level (tools are async functions, easy to mock)
+  - APScheduler jobs tested in isolation (call monitoring loop function directly)
+
+### Week 14 Deliverables
+- ✅ Conversational agent responds with streaming output
+- ✅ Agent has full context: watchlist, positions, signals, news
+- ✅ Alpaca paper trading submits and tracks orders
+- ✅ All 7 risk guardrails enforced and tested
+- ✅ Kill switch works instantly
+- ✅ Daily loss limit auto-pauses trading
+- ✅ Trade audit trail complete in trade_orders table
+- ✅ Test coverage ≥ 85% for agent-service
+
+### Week 14 Definition of Done
+- [ ] Agent correctly identifies user's portfolio from DB (not hallucinated data)
+- [ ] Paper trade placed via Alpaca test environment and confirmed in trade_orders
+- [ ] Blocking a trade with too-large position size returns correct rejection reason
+- [ ] Conversation history persists across service restarts (PostgreSQL checkpointer)
+- [ ] Alpaca fill event updates portfolio_positions automatically
+- [ ] All trading endpoints return 403 for free_user role
+
+---
+
+## New Environment Variables
+
+```
+# Agent Service
+AGENT_SERVICE_PORT=8006
+ANTHROPIC_MODEL=claude-sonnet-4-6
+AGENT_MAX_TOKENS=4096
+AGENT_TEMPERATURE=0.1
+
+# Alpaca (paper trading by default)
+ALPACA_API_KEY=
+ALPACA_API_SECRET=
+ALPACA_BASE_URL=https://paper-api.alpaca.markets
+ALPACA_DATA_URL=https://data.alpaca.markets
+
+# Encryption for broker keys at rest
+BROKER_KEY_ENCRYPTION_KEY=       # 32-byte AES key (base64)
+
+# Risk controls (overridable)
+AUTO_TRADE_MAX_POSITION_PCT=10.0
+AUTO_TRADE_MAX_DAILY_LOSS_PCT=2.0
+AUTO_TRADE_CONFIRMATION_THRESHOLD_USD=500.0
+
+# Monitoring scheduler
+WATCHLIST_MONITOR_INTERVAL_MINUTES=60
+DIGEST_SEND_TIME_UTC=07:00
+```
+
+---
+
+## New Dependencies (agent-service/requirements.txt)
+
+```
+# Agent framework
+langgraph==0.2.0
+langchain-anthropic==0.2.0
+langchain-core==0.3.0
+
+# Anthropic SDK
+anthropic==0.40.0
+
+# Broker integration
+alpaca-py==0.26.0
+
+# Scheduling
+apscheduler==3.10.4
+
+# LangGraph state persistence
+langgraph-checkpoint-postgres==2.0.0
+psycopg2-binary==2.9.9
+
+# Key encryption
+cryptography==41.0.8
+
+# Shared (reuse from existing services)
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+sqlalchemy[asyncio]==2.0.23
+asyncpg==0.29.0
+redis[asyncio]==5.0.1
+httpx==0.25.2
+structlog==23.2.0
+prometheus-client==0.19.0
+confluent-kafka==2.3.0
+pytest==7.4.3
+pytest-asyncio==0.21.1
+aiosqlite==0.19.0
+```
+
+---
+
+## Files Modified in Existing Services
+
+| File | Change |
+|---|---|
+| `api-gateway/migrations/versions/002_watchlist_portfolio_agent.py` | New — 6 tables |
+| `api-gateway/src/api/v1/watchlist.py` | New — watchlist CRUD |
+| `api-gateway/src/api/v1/preferences.py` | New — user investment preferences |
+| `api-gateway/src/models/watchlist.py` | New — WatchlistItem, UserPreference ORM |
+| `finstream_config/settings.py` | Add AGENT_SERVICE_URL, ALPACA_*, BROKER_KEY_ENCRYPTION_KEY |
+| `docker-compose.yml` | Add agent-service block |
+| `.env.example` | Add new vars |
+| `Makefile` | Add make agent, make test-agent targets |
+| `.github/workflows/ci.yml` | Add agent-service lint + test job |
+
+---
+
+## Key Endpoint Reference
+
+```
+# Watchlist (api-gateway, port 8005)
+POST   /api/v1/watchlist
+GET    /api/v1/watchlist
+DELETE /api/v1/watchlist/{symbol}
+
+# Preferences (api-gateway, port 8005)
+GET    /api/v1/users/me/preferences
+PUT    /api/v1/users/me/preferences
+
+# Portfolio (agent-service, port 8006)
+POST   /api/v1/portfolio/positions
+GET    /api/v1/portfolio/positions
+DELETE /api/v1/portfolio/positions/{symbol}
+GET    /api/v1/portfolio/summary
+
+# Agent (agent-service, port 8006)
+POST   /api/v1/agent/chat                         (SSE streaming)
+GET    /api/v1/agent/sessions
+GET    /api/v1/agent/sessions/{thread_id}/messages
+DELETE /api/v1/agent/sessions/{thread_id}
+
+# Trading (agent-service, port 8006 — premium only)
+POST   /api/v1/trading/preferences                (set Alpaca keys, enable trading)
+POST   /api/v1/trading/orders                     (manual trade request)
+GET    /api/v1/trading/orders                     (order history)
+GET    /api/v1/trading/orders/{order_id}
+DELETE /api/v1/trading/auto                       (kill switch)
+
+GET    /api/v1/health
+GET    /metrics
+```
+
+---
+
+## Verification Plan
+
+1. **Unit tests**: `make test-agent` — target 85%+ coverage; all agent tool calls mocked; risk guardrails tested individually; Alpaca API mocked
+2. **Watchlist test**: Add AAPL → check Redis SET populated → remove AAPL → verify Redis cleared → confirm next signal route skips user
+3. **Portfolio P&L test**: Add position at cost $150 → mock latest price Redis = $160 → GET /portfolio/summary returns +$10 P&L
+4. **Agent conversation test**: Send "What is happening with my AAPL?" → assert agent calls get_watchlist tool → assert response mentions AAPL specifically (not generic)
+5. **Risk guardrail tests**: 7 individual tests — one per guardrail — each verifying correct rejection reason in response body
+6. **Paper trading end-to-end**: Mock Alpaca API → request trade → verify trade_orders row created with status=submitted → send mock fill event → verify portfolio_positions updated + notification sent
+7. **Kill switch test**: Enable auto trading → submit trade that would succeed → hit kill switch → retry same trade → verify 403
+8. **Daily loss cap test**: Mock fills totalling 2.5% loss → attempt next trade → verify auto-paused and notification sent
+9. **Monitoring loop test**: Seed watchlist + Redis signals → call monitoring loop directly → verify WebSocket broadcast called with summary
+10. **CI**: GitHub Actions runs lint (ruff) + test-agent on push to main/develop
+
+---
+
+# PHASE 8: Frontend Application (Weeks 15-16)
 **Goal:** Production-ready React dashboard with all features
 
 ## Week 13: Core Frontend Components
@@ -1490,7 +2078,7 @@
 
 ---
 
-# PHASE 8: Production Deployment & Optimization (Weeks 15-16)
+# PHASE 9: Production Deployment & Optimization (Weeks 17-18)
 **Goal:** Production-ready deployment with monitoring and documentation
 
 ## Week 15: Production Deployment
@@ -1847,7 +2435,7 @@
 - ✅ APIs functional
 - ✅ Performance targets met
 
-## Phase 7-8 Success
+## Phase 8-9 Success
 - ✅ Frontend complete
 - ✅ Production deployed
 - ✅ Users can access platform

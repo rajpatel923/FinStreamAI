@@ -178,6 +178,34 @@ class Settings(BaseSettings):
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://localhost:4318"
     OTEL_SERVICE_NAME: str = "api-gateway"
 
+    # ─── Agent Service (Phase 7) ─────────────────────────────────
+    AGENT_SERVICE_PORT: int = 8006
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
+
+    # Alpaca broker
+    ALPACA_API_KEY: str = ""
+    ALPACA_SECRET_KEY: str = ""
+    ALPACA_BASE_URL: str = "https://paper-api.alpaca.markets"
+
+    # Broker key encryption (Fernet — 32-byte base64 key)
+    BROKER_KEY_ENCRYPTION_KEY: str = ""
+
+    # Auto-trading limits
+    AUTO_TRADE_CONFIRMATION_THRESHOLD_USD: float = 1000.0
+    AUTO_TRADE_MAX_DAILY_LOSS_PCT: float = 0.02
+    AUTO_TRADE_MAX_POSITION_SIZE_PCT: float = 0.10
+
+    # Internal cross-service comms
+    API_GATEWAY_INTERNAL_URL: str = "http://localhost:8005"
+    INTERNAL_PUSH_SECRET: str = ""
+
+    # Personalization limits
+    FREE_TIER_MAX_WATCHLIST: int = 5
+
+    # Monitoring schedule
+    WATCHLIST_MONITOR_INTERVAL_MINUTES: int = 15
+    DAILY_DIGEST_HOUR: int = 7  # 7 AM UTC
+
     # ─── Data Lake ───────────────────────────────────────────────
     MINIO_ENDPOINT: str = "http://localhost:9000"
     MINIO_ROOT_USER: str = "minioadmin"

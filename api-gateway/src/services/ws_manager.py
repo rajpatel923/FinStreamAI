@@ -70,6 +70,8 @@ class KafkaBridgeConsumer:
         "events.extracted",
         "alerts.anomalies",
         "predictions.signals",
+        "agent.recommendations",
+        "watchlist.signals",
     ]
 
     def __init__(

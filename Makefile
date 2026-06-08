@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai logs-lake logs-gateway test test-ingest test-stream test-ai test-lake test-gateway lint format api ingest stream ai lake gateway kafka-ui topics db-init lake-init timescaledb-optimize neo4j-init migrate clean help
+.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai logs-lake logs-gateway logs-agent test test-ingest test-stream test-ai test-lake test-gateway test-agent lint format api ingest stream ai lake gateway agent kafka-ui topics db-init lake-init timescaledb-optimize neo4j-init migrate clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -41,6 +41,9 @@ help:
 	@echo "  make gateway      Start api-gateway locally with uvicorn --reload"
 	@echo "  make test-gateway Run api-gateway tests (≥85% coverage)"
 	@echo "  make logs-gateway Tail api-gateway log file"
+	@echo "  make agent        Start agent-service locally with uvicorn --reload"
+	@echo "  make test-agent   Run agent-service tests (≥85% coverage)"
+	@echo "  make logs-agent   Tail agent-service log file"
 	@echo "  make migrate      Run Alembic migrations (api-gateway)"
 	@echo "  make clean        Stop services, remove volumes, prune"
 
@@ -96,6 +99,9 @@ logs-lake:
 logs-gateway:
 	@tail -f logs/gateway.log
 
+logs-agent:
+	@tail -f logs/agent.log
+
 test:
 	cd api-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
@@ -142,6 +148,12 @@ gateway:
 
 test-gateway:
 	cd api-gateway && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc
+
+agent:
+	cd agent-service && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8006
+
+test-agent:
+	cd agent-service && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc
 
 migrate:
 	cd api-gateway && $(PYTHON) -m alembic upgrade head

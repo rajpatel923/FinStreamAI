@@ -112,7 +112,26 @@
       "Bash(JWT_SECRET_KEY=\"test_secret_key_for_ci_at_least_32_chars\" python -m pytest tests/ --cov=src --cov-report=term-missing --cov-config=.coveragerc -q 2>&1 | tail -60)",
       "Bash(JWT_SECRET_KEY=\"test_secret_key_for_ci_at_least_32_chars\" python -m pytest tests/test_coverage_final.py -x -q 2>&1 | tail -40)",
       "Bash(JWT_SECRET_KEY=\"test_secret_key_for_ci_at_least_32_chars\" python -m pytest tests/test_coverage_final.py -x -q 2>&1 | tail -30)",
-      "Bash(JWT_SECRET_KEY=\"test_secret_key_for_ci_at_least_32_chars\" python -m pytest tests/ --cov=src --cov-report=term-missing --cov-config=.coveragerc -q 2>&1 | tail -50)"
+      "Bash(JWT_SECRET_KEY=\"test_secret_key_for_ci_at_least_32_chars\" python -m pytest tests/ --cov=src --cov-report=term-missing --cov-config=.coveragerc -q 2>&1 | tail -50)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/api-gateway && python -m pytest tests/test_watchlist.py tests/test_preferences.py -v 2>&1 | tail -40)",
+      "Bash(python -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc 2>&1 | tail -30)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/agent-service && pip install -q langgraph==0.2.0 langchain-core==0.3.0 langchain-anthropic==0.2.0 sse-starlette==1.8.2 apscheduler==3.10.4 aiosqlite==0.19.0 2>&1 | tail -5)",
+      "Bash(pip show langgraph langchain-core langchain-anthropic 2>&1 | grep -E \"^\\(Name|Version\\)\")",
+      "Bash(pip install -q langgraph langchain-core langchain-anthropic sse-starlette apscheduler aiosqlite 2>&1 | tail -5)",
+      "Bash(pip show sse-starlette apscheduler aiosqlite 2>&1 | grep -E \"^\\(Name|Version\\)\")",
+      "Bash(python -m pytest tests/test_supervisor.py tests/test_agent_api.py tests/test_portfolio_api.py -v 2>&1 | tail -50)",
+      "Bash(pip show fastapi starlette 2>&1 | grep -E \"^\\(Name|Version\\)\")",
+      "Bash(pip install -q \"starlette>=0.27.0,<0.28.0\" \"sse-starlette==1.8.2\" 2>&1 | tail -5)",
+      "Bash(pip show fastapi starlette sse-starlette 2>&1 | grep -E \"^\\(Name|Version\\)\")",
+      "Bash(python -m pytest tests/test_supervisor.py tests/test_agent_api.py tests/test_portfolio_api.py -v 2>&1 | tail -40)",
+      "Bash(python -m pytest tests/test_trading_api.py tests/test_monitoring_loop.py tests/test_broker_service.py -v 2>&1 | tail -60)",
+      "Bash(pip install -q alpaca-py 2>&1 | tail -3)",
+      "Bash(python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc 2>&1 | tail -40)",
+      "Bash(python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc 2>&1 | tail -45)",
+      "Bash(python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -35)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/api-gateway && python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -15)",
+      "Bash(python -m pytest tests/ --cov=src --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -8)",
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/agent-service && python -m pytest tests/ --cov=src --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -8)"
     ]
   }
 }

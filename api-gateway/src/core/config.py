@@ -46,6 +46,10 @@ class GatewaySettings(_BaseSettings):
     FREE_TIER_MAX_ALERTS: int = 3
     FREE_TIER_MARKET_DATA_HOURS: int = 24
     FREE_TIER_MAX_SYMBOLS: int = 10
+    FREE_TIER_MAX_WATCHLIST: int = 5
+
+    # ─── Internal cross-service ───────────────────────────────────
+    INTERNAL_PUSH_SECRET: str = ""
 
     # ─── Export limits ────────────────────────────────────────────
     PREMIUM_EXPORT_MAX_BYTES: int = 1_073_741_824  # 1 GB

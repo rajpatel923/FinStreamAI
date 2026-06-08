@@ -113,6 +113,7 @@ app.mount("/metrics", metrics_app)
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 from src.api.v1 import auth, users, query, analytics, alerts, export, websocket, health  # noqa: E402
+from src.api.v1 import watchlist, preferences, internal  # noqa: E402
 
 app.include_router(health.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
@@ -121,6 +122,9 @@ app.include_router(query.router, prefix=settings.API_V1_PREFIX)
 app.include_router(analytics.router, prefix=settings.API_V1_PREFIX)
 app.include_router(alerts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(export.router, prefix=settings.API_V1_PREFIX)
+app.include_router(watchlist.router, prefix=settings.API_V1_PREFIX)
+app.include_router(preferences.router, prefix=settings.API_V1_PREFIX)
+app.include_router(internal.router, prefix=settings.API_V1_PREFIX)
 app.include_router(websocket.router)  # no prefix — path is /ws/stream
 
 # Root shortcuts
