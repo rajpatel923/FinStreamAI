@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai logs-lake logs-gateway logs-agent test test-ingest test-stream test-ai test-lake test-gateway test-agent lint format api ingest stream ai lake gateway agent kafka-ui topics db-init lake-init timescaledb-optimize neo4j-init migrate clean help
+.PHONY: setup venv-setup dev dev-local dev-infra start stop restart health status logs logs-api logs-ingest logs-stream logs-ai logs-lake logs-gateway logs-agent test test-ingest test-stream test-ai test-lake test-gateway test-agent lint format api ingest stream ai lake gateway agent kafka-ui topics db-init lake-init timescaledb-optimize neo4j-init migrate clean help
 
 DOCKER_COMPOSE = docker compose
 PYTHON = python3
@@ -7,6 +7,8 @@ help:
 	@echo "FinStreamAI — Developer Commands"
 	@echo ""
 	@echo "  make setup        Run setup.sh (checks prereqs, starts infra, creates topics)"
+	@echo "  make venv-setup   Create venvs + install deps for all services (one-time)"
+	@echo "  make dev-local    Run all services locally via process-compose (TUI)"
 	@echo "  make start        Start full stack (infra + all app services)"
 	@echo "  make stop         Stop all services (app processes + docker infra)"
 	@echo "  make restart      stop + start"
@@ -50,6 +52,15 @@ help:
 setup:
 	@bash scripts/setup.sh
 
+venv-setup:
+	@for svc in stream-processing ai-services data-lake api-gateway agent-service; do \
+		echo "Setting up $$svc..."; \
+		python3 -m venv $$svc/venv && \
+		$$svc/venv/bin/pip install --quiet -r $$svc/requirements.txt && \
+		echo "  ✓ $$svc done"; \
+	done
+	@echo "All venvs ready."
+
 start:
 	@bash scripts/start.sh
 
@@ -66,6 +77,9 @@ status: health
 dev:
 	$(DOCKER_COMPOSE) up -d
 	@echo "All services started. API at http://localhost:8000"
+
+dev-local:
+	process-compose up -f process-compose.yml
 
 dev-infra:
 	$(DOCKER_COMPOSE) up -d kafka schema-registry postgres timescaledb redis neo4j minio prometheus grafana jaeger

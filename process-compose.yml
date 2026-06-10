@@ -1,0 +1,127 @@
+version: "0.5"
+
+environment:
+  - .env
+
+processes:
+
+  # ── Infrastructure (Docker) ────────────────────────────────────────────────
+
+  infra:
+    command: docker compose up kafka schema-registry postgres timescaledb redis neo4j minio prometheus grafana jaeger
+    is_background: true
+    readiness_probe:
+      exec:
+        command: "docker exec finstreami-kafka kafka-broker-api-versions --bootstrap-server localhost:9092"
+      initial_delay_seconds: 10
+      period_seconds: 5
+      failure_threshold: 20
+
+  # ── App Services ───────────────────────────────────────────────────────────
+
+  api-services:
+    command: bash -c "cd api-services && source venv/bin/activate && python3 -m uvicorn src.main:app --reload --port 8000"
+    depends_on:
+      infra:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8000
+        path: /health
+      initial_delay_seconds: 5
+      period_seconds: 3
+    restart: on_failure
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  data-ingestion:
+    command: bash -c "cd data-ingestion && source venv/bin/activate && python3 -m src.main"
+    depends_on:
+      infra:
+        condition: process_healthy
+    restart: on_failure
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  stream-processing:
+    command: bash -c "cd stream-processing && source venv/bin/activate && python3 -m src.main"
+    depends_on:
+      infra:
+        condition: process_healthy
+    restart: on_failure
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  ai-services:
+    command: bash -c "cd ai-services && source venv/bin/activate && python3 -m uvicorn src.main:app --reload --port 8003"
+    depends_on:
+      infra:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8003
+        path: /health
+      initial_delay_seconds: 10
+      period_seconds: 3
+    restart: on_failure
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  data-lake:
+    command: bash -c "cd data-lake && source venv/bin/activate && python3 -m uvicorn src.main:app --reload --port 8004"
+    depends_on:
+      infra:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8004
+        path: /health
+      initial_delay_seconds: 5
+      period_seconds: 3
+    restart: on_failure
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  api-gateway:
+    command: bash -c "cd api-gateway && source venv/bin/activate && python3 -m uvicorn src.main:app --reload --port 8005"
+    depends_on:
+      api-services:
+        condition: process_healthy
+      ai-services:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8005
+        path: /health
+      initial_delay_seconds: 5
+      period_seconds: 3
+    restart: on_failure
+    availability:
+      restart: on_failure
+      max_restarts: 3
+
+  agent-service:
+    command: bash -c "cd agent-service && source venv/bin/activate && python3 -m uvicorn src.main:app --reload --port 8006"
+    depends_on:
+      api-gateway:
+        condition: process_healthy
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8006
+        path: /health
+      initial_delay_seconds: 5
+      period_seconds: 3
+    restart: on_failure
+    availability:
+      restart: on_failure
+      max_restarts: 3

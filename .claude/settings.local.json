@@ -131,7 +131,16 @@
       "Bash(python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -35)",
       "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/api-gateway && python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -15)",
       "Bash(python -m pytest tests/ --cov=src --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -8)",
-      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/agent-service && python -m pytest tests/ --cov=src --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -8)"
+      "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/agent-service && python -m pytest tests/ --cov=src --cov-fail-under=85 --cov-config=.coveragerc -q 2>&1 | tail -8)",
+      "Bash(docker ps --format \"table {{.Names}}\\\\t{{.Status}}\" 2>/dev/null | head -20)",
+      "Bash(ls */requirements.txt 2>/dev/null)",
+      "Bash(docker compose up -d schema-registry neo4j)",
+      "Bash(python3 -m venv ai-services/venv && ai-services/venv/bin/pip install --quiet -r ai-services/requirements.txt 2>&1 | tail -5)",
+      "Bash(python3 -m venv agent-service/venv && agent-service/venv/bin/pip install --quiet -r agent-service/requirements.txt 2>&1 | tail -10)",
+      "Bash(ai-services/venv/bin/pip show torch transformers sentence-transformers 2>&1 | grep -E \"^Name|^Version\")",
+      "Bash(agent-service/venv/bin/pip show langgraph langchain-core langchain-anthropic 2>&1 | grep -E \"^Name|^Version\")",
+      "Bash(ai-services/venv/bin/pip install -r ai-services/requirements.txt 2>&1 | grep -A5 -E \"ERROR|error|failed|Cannot\")",
+      "Bash(ai-services/venv/bin/pip install -r ai-services/requirements.txt 2>&1 | tail -8)"
     ]
   }
 }
