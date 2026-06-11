@@ -2,7 +2,11 @@ import sys
 from pathlib import Path
 
 # Add repo root to sys.path so finstream_config is importable
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_here = Path(__file__).resolve()
+_REPO_ROOT = next(
+    (p for p in _here.parents if (p / "finstream_config").is_dir()),
+    _here.parents[2],
+)
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 

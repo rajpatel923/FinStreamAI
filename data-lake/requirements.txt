@@ -16,6 +16,9 @@ s3fs==2023.12.2
 # Graph
 neo4j==5.14.1
 
+# Auth
+python-jose[cryptography]==3.3.0
+
 # Cache / DB
 redis==5.0.1
 psycopg2-binary==2.9.9

@@ -46,6 +46,24 @@ jobs:
       - name: Black — api-gateway
         run: black --check api-gateway/src/ api-gateway/tests/
 
+      - name: Ruff — ai-services
+        run: ruff check ai-services/src/ ai-services/tests/
+
+      - name: Black — ai-services
+        run: black --check ai-services/src/ ai-services/tests/
+
+      - name: Ruff — data-lake
+        run: ruff check data-lake/src/ data-lake/tests/
+
+      - name: Black — data-lake
+        run: black --check data-lake/src/ data-lake/tests/
+
+      - name: Ruff — agent-service
+        run: ruff check agent-service/src/ agent-service/tests/
+
+      - name: Black — agent-service
+        run: black --check agent-service/src/ agent-service/tests/
+
   test-api:
     name: Test API Services (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -171,11 +189,133 @@ jobs:
           name: gateway-coverage-report
           path: api-gateway/coverage.xml
 
+  test-ai-services:
+    name: Test AI Services
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ai-services/requirements.txt
+
+      - name: Install dependencies
+        working-directory: ai-services
+        run: pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        working-directory: ai-services
+        env:
+          ANTHROPIC_API_KEY: "test-key"
+          REDIS_HOST: localhost
+          TIMESCALEDB_HOST: localhost
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+        run: |
+          python -m pytest tests/ -v \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-config=.coveragerc
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-services-coverage-report
+          path: ai-services/coverage.xml
+
+  test-data-lake:
+    name: Test Data Lake
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: data-lake/requirements.txt
+
+      - name: Install dependencies
+        working-directory: data-lake
+        run: pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        working-directory: data-lake
+        env:
+          POSTGRES_HOST: localhost
+          REDIS_HOST: localhost
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+          NEO4J_URI: bolt://localhost:7687
+          MINIO_ENDPOINT: localhost:9000
+        run: |
+          python -m pytest tests/ -v \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-config=.coveragerc
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: data-lake-coverage-report
+          path: data-lake/coverage.xml
+
+  test-agent-service:
+    name: Test Agent Service
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: agent-service/requirements.txt
+
+      - name: Install dependencies
+        working-directory: agent-service
+        run: pip install -r requirements.txt aiosqlite
+
+      - name: Run tests with coverage
+        working-directory: agent-service
+        env:
+          DEBUG: "True"
+          JWT_SECRET_KEY: "test_secret_key_for_ci_at_least_32_chars"
+          POSTGRES_HOST: localhost
+          REDIS_HOST: localhost
+          KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+          ANTHROPIC_API_KEY: "test-key"
+          AI_SERVICES_URL: "http://localhost:8004"
+        run: |
+          python -m pytest tests/ -v \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=85 \
+            --cov-config=.coveragerc
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-service-coverage-report
+          path: agent-service/coverage.xml
+
   build:
     name: Docker Build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    needs: [lint, test-api, test-stream, test-gateway]
+    needs: [lint, test-api, test-stream, test-gateway, test-ai-services, test-data-lake, test-agent-service]
 
     steps:
       - uses: actions/checkout@v4
@@ -218,5 +358,34 @@ jobs:
           file: api-gateway/Dockerfile
           push: false
           tags: finstreami/api-gateway:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build ai-services image
+        uses: docker/build-push-action@v5
+        with:
+          context: ai-services
+          push: false
+          tags: finstreami/ai-services:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build data-lake image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: data-lake/Dockerfile
+          push: false
+          tags: finstreami/data-lake:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build agent-service image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: agent-service/Dockerfile
+          push: false
+          tags: finstreami/agent-service:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
