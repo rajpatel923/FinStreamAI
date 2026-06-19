@@ -233,3 +233,4 @@ logs/
 # OS
 .AppleDouble
 .LSOverride
+.env.local

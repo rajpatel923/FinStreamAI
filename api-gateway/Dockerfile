@@ -12,7 +12,7 @@ COPY finstream_config/ /app/finstream_config/
 
 # Copy gateway
 COPY api-gateway/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout 300 -r requirements.txt
 
 COPY api-gateway/ .
 

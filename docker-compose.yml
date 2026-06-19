@@ -63,6 +63,37 @@ services:
       timeout: 10s
       retries: 5
 
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.9.0
+    container_name: finstreami-kafka-setup
+    networks: [finstreami-network]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic market.ticks.raw        --partitions 50 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic market.ticks.clean      --partitions 50 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic market.bars.1min        --partitions 20 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic market.bars.5min        --partitions 10 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic market.bars.15min       --partitions 5  --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic market.bars.1hour       --partitions 3  --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic technical.indicators    --partitions 20 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic news.articles.raw       --partitions 10 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic news.articles.scored    --partitions 10 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic social.posts.raw        --partitions 15 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic social.sentiment        --partitions 15 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic events.extracted        --partitions 5  --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic alerts.anomalies        --partitions 5  --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic predictions.signals     --partitions 10 --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic watchlist.signals       --partitions 5  --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic agent.recommendations   --partitions 5  --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic trade.orders.submitted  --partitions 5  --replication-factor 1 &&
+        kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic trade.orders.filled     --partitions 5  --replication-factor 1 &&
+        echo 'All 18 Kafka topics created.'
+      "
+    restart: "no"
+
   # ─── Databases ───────────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
@@ -128,7 +159,6 @@ services:
       - "7687:7687"
     environment:
       NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-finstreami123}
-      NEO4J_PLUGINS: '["apoc"]'
     volumes:
       - neo4j_data:/data
     healthcheck:
@@ -210,10 +240,12 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
       minio:
         condition: service_healthy
       neo4j:
-        condition: service_healthy
+        condition: service_started
       timescaledb:
         condition: service_healthy
     env_file: .env
@@ -224,6 +256,8 @@ services:
       TIMESCALEDB_PORT: 5432
       NEO4J_URI: bolt://neo4j:7687
       MINIO_ENDPOINT: http://minio:9000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       DATA_LAKE_METRICS_PORT: 8004
     ports:
       - "8004:8004"
@@ -243,6 +277,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
     env_file: .env
     environment:
       POSTGRES_HOST: postgres
@@ -277,6 +313,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
       api-gateway:
         condition: service_healthy
     env_file: .env
@@ -297,6 +335,58 @@ services:
       timeout: 10s
       retries: 5
 
+  # ─── Data Ingestion ───────────────────────────────────────────
+  data-ingestion:
+    build:
+      context: .
+      dockerfile: data-ingestion/Dockerfile
+    container_name: finstreami-data-ingestion
+    networks: [finstreami-network]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
+      schema-registry:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    restart: unless-stopped
+
+  # ─── AI Services ──────────────────────────────────────────────
+  ai-services:
+    build:
+      context: .
+      dockerfile: ai-services/Dockerfile
+    container_name: finstreami-ai-services
+    networks: [finstreami-network]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: 5432
+      AI_SERVICES_PORT: 8003
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   # ─── Stream Processing ────────────────────────────────────────
   stream-processing:
     build:
@@ -307,6 +397,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
       timescaledb:
         condition: service_healthy
     env_file: .env
@@ -315,6 +407,8 @@ services:
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       STREAM_METRICS_PORT: 8002
     ports:
       - "8002:8002"

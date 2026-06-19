@@ -12,7 +12,7 @@ COPY finstream_config/ ./finstream_config/
 
 # Copy service files
 COPY agent-service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout 300 -r requirements.txt
 
 COPY agent-service/src/ ./src/
 

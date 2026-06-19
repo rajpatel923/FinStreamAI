@@ -27,10 +27,16 @@ AsyncPostgresSession = async_sessionmaker(
 
 
 async def init_db() -> None:
-    import sqlalchemy
+    # Import all models so SQLAlchemy registers them with Base before create_all
+    import src.models.user  # noqa: F401
+    import src.models.conversation  # noqa: F401
+    import src.models.portfolio  # noqa: F401
+    import src.models.preferences  # noqa: F401
+    import src.models.trading  # noqa: F401
+    import src.models.watchlist  # noqa: F401
 
-    async with postgres_engine.connect() as conn:
-        await conn.execute(sqlalchemy.text("SELECT 1"))
+    async with postgres_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 async def close_db() -> None:

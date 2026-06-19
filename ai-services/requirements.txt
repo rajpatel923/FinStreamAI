@@ -1,4 +1,5 @@
 # Core framework
+python-jose[cryptography]==3.3.0
 fastapi==0.104.1
 uvicorn==0.24.0
 pydantic==2.5.0
@@ -20,6 +21,7 @@ chromadb==0.4.22
 
 # NLP fallback for event extraction
 spacy==3.7.2
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
 
 # Market prediction
 xgboost==2.0.3
