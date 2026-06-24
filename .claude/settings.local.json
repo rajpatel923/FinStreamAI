@@ -142,7 +142,9 @@
       "Bash(ai-services/venv/bin/pip install -r ai-services/requirements.txt 2>&1 | grep -A5 -E \"ERROR|error|failed|Cannot\")",
       "Bash(ai-services/venv/bin/pip install -r ai-services/requirements.txt 2>&1 | tail -8)",
       "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/frontend && npm install 2>&1 | tail -5)",
-      "Bash(npm run build 2>&1)"
+      "Bash(npm run build 2>&1)",
+      "Read(//usr/bin/**)",
+      "Bash(/usr/bin/git --version)"
     ]
   }
 }
