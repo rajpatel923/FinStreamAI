@@ -5,6 +5,7 @@ import datetime
 from typing import Any
 
 import pandas as pd
+import pyarrow as pa
 import structlog
 
 from src.lake.delta_client import DeltaClient
@@ -13,11 +14,44 @@ from src.quality.quarantine import Quarantine
 logger = structlog.get_logger(__name__)
 
 _REQUIRED_FIELDS: dict[str, list[str]] = {
-    "market_tick": ["symbol", "price", "timestamp"],
-    "news_article": ["article_id", "title", "timestamp"],
-    "social_post": ["post_id", "content", "timestamp"],
-    "event": ["event_id", "event_type", "timestamp"],
+    "market_tick": ["symbol", "price", "timestamp_ms"],
+    "news_article": ["article_id", "headline", "published_ms"],
+    "social_post": ["post_id", "body", "created_ms"],
+    "event": ["source_id", "event_type", "extracted_ms"],
 }
+
+# ms-epoch field per record_type used to derive the partition timestamp.
+_TIMESTAMP_FIELD: dict[str, str] = {
+    "market_tick": "timestamp_ms",
+    "news_article": "published_ms",
+    "social_post": "created_ms",
+    "event": "extracted_ms",
+}
+
+# "event" records come from Claude/spaCy extraction as plain JSON, where
+# "date" and "error" are legitimately absent/None depending on which
+# extraction path ran. An explicit schema keeps those columns stably typed
+# across writes instead of drifting per-row.
+_EVENT_SCHEMA = pa.schema(
+    [
+        ("source_id", pa.string()),
+        ("extracted_ms", pa.int64()),
+        ("event_type", pa.string()),
+        ("companies", pa.list_(pa.string())),
+        ("date", pa.string()),
+        ("confidence", pa.float64()),
+        ("summary", pa.string()),
+        ("error", pa.string()),
+        ("_ingested_at", pa.string()),
+        ("_source_system", pa.string()),
+        ("year", pa.int64()),
+        ("month", pa.int64()),
+        ("day", pa.int64()),
+        ("hour", pa.int64()),
+    ]
+)
+
+_SCHEMAS: dict[str, pa.Schema] = {"event": _EVENT_SCHEMA}
 
 
 class BronzeLayer:
@@ -65,12 +99,24 @@ class BronzeLayer:
             return
 
         enriched = self._enrich(record)
-        parts = self._time_parts(enriched.get("timestamp"))
+        ts_ms = enriched.get(_TIMESTAMP_FIELD.get(record_type, ""))
+        ts_seconds = ts_ms / 1000 if isinstance(ts_ms, (int, float)) else ts_ms
+        parts = self._time_parts(ts_seconds)
         enriched.update(parts)
 
-        df = pd.DataFrame([enriched])
+        schema = _SCHEMAS.get(record_type)
+        if schema is not None:
+            # Fill any fields absent from this particular record so every
+            # write has the same column set, then let the explicit schema
+            # (rather than pyarrow's inference) type the None values.
+            row = {field.name: enriched.get(field.name) for field in schema}
+            df = pd.DataFrame([row])
+        else:
+            # A single-row DataFrame with a None value infers that column as
+            # pyarrow null-type, which Delta Lake rejects outright.
+            df = pd.DataFrame([{k: v for k, v in enriched.items() if v is not None}])
         path = f"{self._base}/{record_type}"
-        self._client.write(path, df, mode="append", partition_by=partition_by)
+        self._client.write(path, df, mode="append", partition_by=partition_by, schema=schema)
 
     # ------------------------------------------------------------------
     # Public API

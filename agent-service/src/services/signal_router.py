@@ -8,9 +8,14 @@ import threading
 import redis
 import structlog
 
+from src.services.avro_utils import avro_deserializer
+
 logger = structlog.get_logger(__name__)
 
 _TOPICS = ["predictions.signals", "alerts.anomalies"]
+
+# alerts.anomalies carries Confluent wire-format Avro; predictions.signals is plain JSON.
+_TOPIC_TO_SCHEMA = {"alerts.anomalies": "anomaly_alert"}
 
 
 class SignalRouterConsumer:
@@ -62,7 +67,12 @@ class SignalRouterConsumer:
                     continue
 
                 try:
-                    value = json.loads(msg.value())
+                    topic = msg.topic()
+                    schema_name = _TOPIC_TO_SCHEMA.get(topic)
+                    if schema_name is not None:
+                        value = avro_deserializer.deserialize(schema_name, msg.value())
+                    else:
+                        value = json.loads(msg.value())
                     symbol = value.get("symbol", "").upper()
                     if not symbol:
                         continue

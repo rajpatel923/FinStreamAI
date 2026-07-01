@@ -10,7 +10,7 @@ _REPO_ROOT = next(
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from finstream_config.settings import SettingsConfigDict as _BaseSettings, SettingsConfigDict  # noqa: E402
+from finstream_config.settings import Settings as _BaseSettings, SettingsConfigDict  # noqa: E402
 
 
 class AgentSettings(_BaseSettings):

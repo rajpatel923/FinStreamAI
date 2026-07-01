@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "AnomalyAlert",
+  "fields": [
+    {"name": "alert_id",     "type": "string"},
+    {"name": "symbol",       "type": "string"},
+    {"name": "timestamp_ms", "type": "long"},
+    {"name": "alert_type",   "type": {"type": "enum", "name": "AlertType",
+                              "symbols": ["PRICE_ZSCORE", "VOLUME_SPIKE", "PRICE_MOMENTUM"]}},
+    {"name": "severity",     "type": {"type": "enum", "name": "Severity",
+                              "symbols": ["LOW", "MEDIUM", "HIGH"]}},
+    {"name": "value",        "type": "double"},
+    {"name": "threshold",    "type": "double"},
+    {"name": "z_score",      "type": ["null", "double"], "default": null},
+    {"name": "rolling_mean", "type": ["null", "double"], "default": null},
+    {"name": "rolling_std",  "type": ["null", "double"], "default": null},
+    {"name": "message",      "type": "string"},
+    {"name": "source_topic", "type": "string", "default": "market.ticks.clean"}
+  ]
+}

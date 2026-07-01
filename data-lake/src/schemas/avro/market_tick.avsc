@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "MarketTick",
+  "fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "symbol", "type": "string"},
+    {"name": "timestamp_ms", "type": "long"},
+    {"name": "price", "type": "double"},
+    {"name": "volume", "type": "int"},
+    {"name": "bid_price", "type": ["null", "double"], "default": null},
+    {"name": "ask_price", "type": ["null", "double"], "default": null},
+    {"name": "bid_size", "type": ["null", "int"], "default": null},
+    {"name": "ask_size", "type": ["null", "int"], "default": null},
+    {"name": "exchange", "type": ["null", "string"], "default": null},
+    {"name": "source", "type": "string"},
+    {"name": "is_mock", "type": "boolean", "default": false}
+  ]
+}

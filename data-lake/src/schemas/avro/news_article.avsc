@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "NewsArticle",
+  "fields": [
+    {"name": "article_id", "type": "string"},
+    {"name": "headline", "type": "string"},
+    {"name": "body", "type": ["null", "string"], "default": null},
+    {"name": "url", "type": "string"},
+    {"name": "source", "type": "string"},
+    {"name": "published_ms", "type": "long"},
+    {"name": "ingested_ms", "type": "long"},
+    {"name": "symbols", "type": {"type": "array", "items": "string"}, "default": []},
+    {"name": "language", "type": ["null", "string"], "default": null},
+    {"name": "is_mock", "type": "boolean", "default": false}
+  ]
+}

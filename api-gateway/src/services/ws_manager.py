@@ -11,10 +11,19 @@ import redis.asyncio as aioredis
 import structlog
 from fastapi import WebSocket
 
+from src.services.avro_utils import avro_deserializer
+
 logger = structlog.get_logger(__name__)
 
 _PING_INTERVAL = 30
 _PONG_TIMEOUT = 10
+
+# Topics carrying Confluent wire-format Avro; everything else on TOPICS is plain JSON.
+_TOPIC_TO_SCHEMA = {
+    "market.ticks.clean": "market_tick",
+    "alerts.anomalies": "anomaly_alert",
+    "news.articles.scored": "news_sentiment",
+}
 
 
 class ConnectionManager:
@@ -123,9 +132,13 @@ class KafkaBridgeConsumer:
                     logger.error("Kafka WS bridge error", error=str(msg.error()))
                 continue
             try:
-                value = json.loads(msg.value())
-                symbol = value.get("symbol")
                 topic = msg.topic()
+                schema_name = _TOPIC_TO_SCHEMA.get(topic)
+                if schema_name is not None:
+                    value = avro_deserializer.deserialize(schema_name, msg.value())
+                else:
+                    value = json.loads(msg.value())
+                symbol = value.get("symbol")
                 payload = {"type": topic, "data": value}
 
                 if self._loop and not self._loop.is_closed():
