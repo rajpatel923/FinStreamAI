@@ -88,10 +88,14 @@ A real-time financial data streaming and AI analysis platform. It ingests market
 
 - **Docker** + **Docker Compose** v2
 - **Python 3.11+**
+- **uv** (Python package manager — replaces pip for virtual environments)
 - **process-compose** (for local multi-service dev)
 
 ```bash
-# macOS
+# Install uv (all platforms)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# macOS — Docker and process-compose
 brew install docker
 brew install f1bonacc1/process-compose/process-compose
 ```
@@ -141,9 +145,7 @@ make migrate        # Run Alembic migrations (api-gateway)
 make venv-setup
 ```
 
-This creates `venv/` inside each service directory and installs all dependencies. `ai-services` installs PyTorch and will take a few minutes.
-
-> `api-services` and `data-ingestion` already have venvs if you ran `make setup` previously.
+This uses `uv` to create a `.venv/` inside each of the 7 service directories and install all dependencies. `uv` resolves conflicts faster and more reliably than pip. `ai-services` installs PyTorch and will take a few minutes on first run.
 
 ---
 
@@ -245,7 +247,7 @@ curl http://localhost:8006/health     # agent-service
 | Command | Description |
 |---|---|
 | `make setup` | Full setup: prereq check, start infra, create topics |
-| `make venv-setup` | Create venvs + install deps for all services (one-time) |
+| `make venv-setup` | Create `.venv` + install deps for all 7 services via uv (one-time) |
 | `make dev` | Start everything in Docker (no local Python processes) |
 | `make dev-local` | Run all services locally via process-compose TUI |
 | `make dev-infra` | Start infrastructure containers only |

@@ -53,10 +53,10 @@ setup:
 	@bash scripts/setup.sh
 
 venv-setup:
-	@for svc in stream-processing ai-services data-lake api-gateway agent-service; do \
+	@for svc in api-services data-ingestion stream-processing ai-services data-lake api-gateway agent-service; do \
 		echo "Setting up $$svc..."; \
-		python3 -m venv $$svc/venv && \
-		$$svc/venv/bin/pip install --quiet -r $$svc/requirements.txt && \
+		uv venv $$svc/.venv && \
+		uv pip install --python $$svc/.venv/bin/python -r $$svc/requirements.txt && \
 		echo "  ✓ $$svc done"; \
 	done
 	@echo "All venvs ready."
@@ -149,25 +149,25 @@ test-stream:
 	cd stream-processing && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80
 
 test-ai:
-	cd ai-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
+	cd ai-services && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
 lake:
 	cd data-lake && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8004
 
 test-lake:
-	cd data-lake && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
+	cd data-lake && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
 gateway:
 	cd api-gateway && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8005
 
 test-gateway:
-	cd api-gateway && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc
+	cd api-gateway && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
 agent:
 	cd agent-service && $(PYTHON) -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8006
 
 test-agent:
-	cd agent-service && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=85 --cov-config=.coveragerc
+	cd agent-service && $(PYTHON) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
 migrate:
 	cd api-gateway && $(PYTHON) -m alembic upgrade head

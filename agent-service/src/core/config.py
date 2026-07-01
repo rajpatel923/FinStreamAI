@@ -10,12 +10,25 @@ _REPO_ROOT = next(
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from finstream_config.settings import Settings as _BaseSettings, SettingsConfigDict  # noqa: E402
+from finstream_config.settings import SettingsConfigDict as _BaseSettings, SettingsConfigDict  # noqa: E402
 
 
 class AgentSettings(_BaseSettings):
     AGENT_SERVICE_PORT: int = 8006
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
+
+    # LLM provider: anthropic | openrouter | llama_cpp
+    LLM_PROVIDER: str = "anthropic"
+
+    # OpenRouter
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_MODEL: str = "meta-llama/llama-3.3-70b-instruct"
+
+    # llama.cpp local server (llama-server --port 8080)
+    LLAMA_CPP_BASE_URL: str = "http://localhost:8080/v1"
+    LLAMA_CPP_MODEL: str = "local-model"
+    LLAMA_CPP_API_KEY: str = "none"
 
     # Alpaca broker
     ALPACA_API_KEY: str = ""
