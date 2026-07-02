@@ -69,6 +69,10 @@ class _ExtendedSettings(DataLakeSettings):
             "aws_secret_access_key": self.MINIO_ROOT_PASSWORD,
             "aws_region": self.AWS_REGION,
             "allow_http": "true",
+            # MinIO has no native atomic-rename lock; delta-rs requires this
+            # opt-out or every write after the first fails with
+            # "A Delta Lake table already exists at that location".
+            "AWS_S3_ALLOW_UNSAFE_RENAME": "true",
         }
 
 

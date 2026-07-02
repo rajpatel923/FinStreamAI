@@ -16,6 +16,29 @@ from src.core.database import close_db, init_db
 logger = structlog.get_logger(__name__)
 
 
+def _build_chat_model(cfg):
+    provider = cfg.LLM_PROVIDER.lower()
+    if provider == "openrouter":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=cfg.OPENROUTER_MODEL,
+            api_key=cfg.OPENROUTER_API_KEY,
+            base_url=cfg.OPENROUTER_BASE_URL,
+        )
+    if provider == "llama_cpp":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=cfg.LLAMA_CPP_MODEL,
+            api_key=cfg.LLAMA_CPP_API_KEY,
+            base_url=cfg.LLAMA_CPP_BASE_URL,
+        )
+    from langchain_anthropic import ChatAnthropic
+    return ChatAnthropic(
+        model=cfg.ANTHROPIC_MODEL,
+        api_key=cfg.ANTHROPIC_API_KEY,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting FinStreamAI Agent Service", port=settings.AGENT_SERVICE_PORT)
@@ -27,14 +50,11 @@ async def lifespan(app: FastAPI):
 
     # ── Chat model ───────────────────────────────────────────────
     try:
-        from langchain_anthropic import ChatAnthropic
-        chat_model = ChatAnthropic(
-            model=settings.ANTHROPIC_MODEL,
-            api_key=settings.ANTHROPIC_API_KEY,
-        )
+        chat_model = _build_chat_model(settings)
         app.state.chat_model = chat_model
+        logger.info("Chat model initialized", provider=settings.LLM_PROVIDER)
     except Exception as exc:
-        logger.warning("ChatAnthropic init failed", error=str(exc))
+        logger.warning("Chat model init failed", error=str(exc))
         app.state.chat_model = None
 
     # ── Supervisor graph ─────────────────────────────────────────

@@ -26,6 +26,7 @@ class DeltaClient:
         mode: str = "append",
         partition_by: list[str] | None = None,
         schema_mode: str = "merge",
+        schema: Any | None = None,
     ) -> None:
         """Write a DataFrame to a Delta table.
 
@@ -35,6 +36,9 @@ class DeltaClient:
             mode: ``append`` | ``overwrite``
             partition_by: List of column names for partitioning.
             schema_mode: ``merge`` | ``overwrite`` — how to handle schema evolution.
+            schema: Optional explicit pyarrow schema. Needed for record types with
+                nullable fields — without it, a row where such a field is None makes
+                pyarrow infer that column as null-type, which Delta Lake rejects.
         """
         if df.empty:
             logger.debug("Skipping write — empty DataFrame", path=path)
@@ -43,9 +47,10 @@ class DeltaClient:
         write_deltalake(
             path,
             df,
+            schema=schema,
             mode=mode,
             partition_by=partition_by,
-            schema_mode=schema_mode,
+            overwrite_schema=(schema_mode == "overwrite"),
             storage_options=self.storage_options,
         )
         logger.info("Delta write complete", path=path, rows=len(df), mode=mode)

@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "NewsSentiment",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "symbols", "type": {"type": "array", "items": "string"}},
+    {"name": "sentiment_score", "type": "double"},
+    {"name": "confidence", "type": "double"},
+    {"name": "scored_ms", "type": "long"},
+    {"name": "source", "type": "string"}
+  ]
+}

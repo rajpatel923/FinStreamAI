@@ -52,6 +52,49 @@ class ClaudeEventExtractor:
             )
         return self._client
 
+    def _call_llm(self, prompt: str) -> str:
+        """Dispatch to whichever provider LLM_PROVIDER selects.
+
+        llama_cpp/openrouter both speak the OpenAI chat-completions wire
+        format (llama-server's own API), so one httpx call covers both.
+        """
+        provider = settings.LLM_PROVIDER.lower()
+        if provider == "llama_cpp":
+            base_url, model, api_key = (
+                settings.LLAMA_CPP_BASE_URL,
+                settings.LLAMA_CPP_MODEL,
+                settings.LLAMA_CPP_API_KEY,
+            )
+        elif provider == "openrouter":
+            base_url, model, api_key = (
+                settings.OPENROUTER_BASE_URL,
+                settings.OPENROUTER_MODEL,
+                settings.OPENROUTER_API_KEY,
+            )
+        else:
+            client = self._get_client()
+            response = client.messages.create(
+                model=settings.ANTHROPIC_MODEL,
+                max_tokens=512,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text
+
+        import httpx
+
+        response = httpx.post(
+            f"{base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 512,
+            },
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+
     def _get_spacy(self):
         if self._spacy_nlp is None:
             import spacy
@@ -71,17 +114,11 @@ class ClaudeEventExtractor:
         """
         base = {"source_id": source_id, "extracted_ms": int(time.time() * 1000)}
         try:
-            client = self._get_client()
             prompt = _PROMPT_TEMPLATE.format(
                 event_types=_EVENT_TYPES,
                 text=text[:4000],
             )
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=512,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = response.content[0].text.strip()
+            raw = self._call_llm(prompt).strip()
             # Strip markdown code fences if Claude wraps the JSON
             if raw.startswith("```"):
                 parts = raw.split("```")

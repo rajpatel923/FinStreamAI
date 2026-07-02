@@ -306,6 +306,8 @@ services:
       dockerfile: agent-service/Dockerfile
     container_name: finstreami-agent-service
     networks: [finstreami-network]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -326,6 +328,10 @@ services:
       AI_SERVICES_URL: http://ai-services:8003
       API_GATEWAY_INTERNAL_URL: http://api-gateway:8005
       AGENT_SERVICE_PORT: 8006
+      LLM_PROVIDER: llama_cpp
+      LLAMA_CPP_BASE_URL: http://host.docker.internal:11434/v1
+      LLAMA_CPP_MODEL: ../gguf_models/Qwen3-Coder-Next-Q4_K_M.gguf
+      LLAMA_CPP_API_KEY: none
     ports:
       - "8006:8006"
     restart: unless-stopped
@@ -362,6 +368,8 @@ services:
       dockerfile: ai-services/Dockerfile
     container_name: finstreami-ai-services
     networks: [finstreami-network]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       kafka:
         condition: service_healthy
@@ -378,6 +386,10 @@ services:
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: 5432
       AI_SERVICES_PORT: 8003
+      LLM_PROVIDER: llama_cpp
+      LLAMA_CPP_BASE_URL: http://host.docker.internal:11434/v1
+      LLAMA_CPP_MODEL: ../gguf_models/Qwen3-Coder-Next-Q4_K_M.gguf
+      LLAMA_CPP_API_KEY: none
     ports:
       - "8003:8003"
     restart: unless-stopped

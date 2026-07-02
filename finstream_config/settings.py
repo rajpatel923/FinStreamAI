@@ -182,6 +182,19 @@ class Settings(BaseSettings):
     AGENT_SERVICE_PORT: int = 8006
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
 
+    # LLM provider: anthropic | openrouter | llama_cpp
+    LLM_PROVIDER: str = "anthropic"
+
+    # OpenRouter
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_MODEL: str = "meta-llama/llama-3.3-70b-instruct"
+
+    # llama.cpp local server (llama-server --port 8080)
+    LLAMA_CPP_BASE_URL: str = "http://localhost:8080/v1"
+    LLAMA_CPP_MODEL: str = "local-model"
+    LLAMA_CPP_API_KEY: str = "none"
+
     # Alpaca broker
     ALPACA_API_KEY: str = ""
     ALPACA_SECRET_KEY: str = ""

@@ -1,15 +1,15 @@
 """Kafka consumer that sinks messages to the Bronze layer."""
 from __future__ import annotations
 
+import json
 import threading
 import time
 from typing import Any
 
-import fastavro
-import io
 import structlog
 from confluent_kafka import Consumer, KafkaError, KafkaException
 
+from src.connectors.avro_utils import avro_deserializer
 from src.lake.bronze_layer import BronzeLayer
 
 logger = structlog.get_logger(__name__)
@@ -26,6 +26,13 @@ _TOPIC_TO_WRITER = {
     "news.articles.raw": "write_news_article",
     "social.posts.raw": "write_social_post",
     "events.extracted": "write_event",
+}
+
+# Confluent wire-format Avro topics; events.extracted is written as plain JSON.
+_TOPIC_TO_SCHEMA = {
+    "market.ticks.raw": "market_tick",
+    "news.articles.raw": "news_article",
+    "social.posts.raw": "social_post",
 }
 
 _CHECKPOINT_INTERVAL_S = 300  # 5 minutes
@@ -49,17 +56,13 @@ class KafkaSinkConsumer:
     # Avro deserialization
     # ------------------------------------------------------------------
     @staticmethod
-    def _deserialize(raw: bytes) -> dict[str, Any] | None:
-        """Attempt Avro deserialization; fall back to plain dict on failure."""
+    def _deserialize(topic: str, raw: bytes) -> dict[str, Any] | None:
+        """Decode a message per its topic's wire format (Confluent Avro or plain JSON)."""
         try:
-            # Confluent wire format: 1 magic byte + 4-byte schema id + avro payload
-            if raw and len(raw) > 5 and raw[0] == 0:
-                payload = io.BytesIO(raw[5:])
-            else:
-                payload = io.BytesIO(raw)
-            reader = fastavro.reader(payload)
-            records = list(reader)
-            return records[0] if records else None
+            schema_name = _TOPIC_TO_SCHEMA.get(topic)
+            if schema_name is not None:
+                return avro_deserializer.deserialize(schema_name, raw)
+            return json.loads(raw)
         except Exception:
             # If deserialization fails return None (will be quarantined upstream)
             return None
@@ -84,7 +87,7 @@ class KafkaSinkConsumer:
                     raise KafkaException(msg.error())
 
                 topic = msg.topic()
-                record = self._deserialize(msg.value())
+                record = self._deserialize(topic, msg.value())
                 if record is None:
                     logger.warning("Failed to deserialize message", topic=topic)
                     continue
