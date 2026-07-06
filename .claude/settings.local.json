@@ -1,4 +1,7 @@
 {
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8787"
+  },
   "permissions": {
     "allow": [
       "Bash(find /Users/rajpatel/Documents/GitHub/FinStreamAI -maxdepth 3 -type f \\\\\\( -name \"*.go\" -o -name \"*.py\" -o -name \"*.yml\" -o -name \"*.yaml\" -o -name \"*.env*\" -o -name \"docker-compose*\" -o -name \"*.sql\" \\\\\\) 2>/dev/null | head -30)",
@@ -142,7 +145,18 @@
       "Bash(ai-services/venv/bin/pip install -r ai-services/requirements.txt 2>&1 | grep -A5 -E \"ERROR|error|failed|Cannot\")",
       "Bash(ai-services/venv/bin/pip install -r ai-services/requirements.txt 2>&1 | tail -8)",
       "Bash(cd /Users/rajpatel/Documents/GitHub/FinStreamAI/frontend && npm install 2>&1 | tail -5)",
-      "Bash(npm run build 2>&1)"
+      "Bash(npm run build 2>&1)",
+      "Bash(docker compose *)",
+      "Bash(grep -rn '\"open\"\\\\b\\\\|`open`\\\\|\\\\bopen\\\\b' stream-processing/src/sinks/ --include=\"*.py\")",
+      "Bash(docker exec finstreami-timescaledb *)",
+      "Bash(docker exec finstreami-postgres *)",
+      "Bash(docker exec *)",
+      "Bash(curl -s -X POST http://localhost:8003/sentiment/analyze -H 'Content-Type: application/json' -d '{\"text\": \"Apple beats earnings expectations, stock surges 5%\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8003/health)",
+      "Bash(curl -s -X POST http://localhost:8003/api/v1/sentiment/analyze -H 'Content-Type: application/json' -d '{\"texts\": [ *)",
+      "Bash(python -m pytest tests/test_finnhub_producer.py -v)",
+      "Bash(python -m pytest --tb=short -q)"
     ]
   }
 }

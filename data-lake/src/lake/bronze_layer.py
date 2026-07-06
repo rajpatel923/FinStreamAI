@@ -51,7 +51,34 @@ _EVENT_SCHEMA = pa.schema(
     ]
 )
 
-_SCHEMAS: dict[str, pa.Schema] = {"event": _EVENT_SCHEMA}
+# social_post.symbols can be an empty list [] for posts that don't mention any
+# ticker. PyArrow infers [] as list<null> without an explicit schema, which
+# conflicts with an existing Delta table typed list<string>. The schema below
+# pins the type so empty-list rows are written correctly.
+_SOCIAL_POST_SCHEMA = pa.schema(
+    [
+        ("post_id", pa.string()),
+        ("platform", pa.string()),
+        ("subreddit", pa.string()),
+        ("title", pa.string()),
+        ("body", pa.string()),
+        ("author", pa.string()),
+        ("score", pa.int64()),
+        ("num_comments", pa.int64()),
+        ("created_ms", pa.int64()),
+        ("symbols", pa.list_(pa.string())),
+        ("url", pa.string()),
+        ("is_mock", pa.bool_()),
+        ("_ingested_at", pa.string()),
+        ("_source_system", pa.string()),
+        ("year", pa.int64()),
+        ("month", pa.int64()),
+        ("day", pa.int64()),
+        ("hour", pa.int64()),
+    ]
+)
+
+_SCHEMAS: dict[str, pa.Schema] = {"event": _EVENT_SCHEMA, "social_post": _SOCIAL_POST_SCHEMA}
 
 
 class BronzeLayer:

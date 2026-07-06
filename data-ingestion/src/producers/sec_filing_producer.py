@@ -1,3 +1,4 @@
+import json
 import time
 import uuid
 from datetime import date
@@ -8,7 +9,6 @@ import structlog
 
 from src.config.data_source_config import data_source_config
 from src.producers.base_producer import BaseProducer
-from src.schemas.registry import avro_serializer
 from src.utils.data_validation import validator
 from src.utils.mock_data import mock_generator
 from src.utils.monitoring import mock_messages_total, validation_failures_total
@@ -122,9 +122,27 @@ class SECFilingProducer(BaseProducer):
             if filing_id:
                 self._seen.add(filing_id)
 
-            payload = avro_serializer.serialize("sec_filing", record)
+            # Map to the event schema expected by the data-lake bronze layer.
+            # events.extracted is a mixed-format topic (ai-services also writes plain JSON),
+            # so produce JSON — not Avro — to keep both producers compatible.
+            ticker = record.get("ticker")
+            company = record.get("company_name", "")
+            event_record = {
+                "source_id": filing_id or str(uuid.uuid4()),
+                "extracted_ms": record.get("filed_ms", int(time.time() * 1000)),
+                "event_type": record.get("form_type", "SEC_FILING"),
+                "companies": [ticker] if ticker else ([company] if company else []),
+                "date": record.get("period_of_report"),
+                "confidence": 1.0,
+                "summary": (
+                    f"{company} filed {record.get('form_type', '')}. "
+                    f"{record.get('description', '')}".strip()
+                ),
+                "error": None,
+            }
+            payload = json.dumps(event_record).encode()
             if record.get("is_mock"):
                 mock_messages_total.labels(producer=self.producer_name).inc()
-            key = record.get("ticker") or record.get("cik")
+            key = ticker or record.get("cik")
             results.append((key, payload))
         return results

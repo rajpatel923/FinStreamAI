@@ -28,11 +28,11 @@ _TOPIC_TO_WRITER = {
     "events.extracted": "write_event",
 }
 
-# Confluent wire-format Avro topics; events.extracted is written as plain JSON.
 _TOPIC_TO_SCHEMA = {
     "market.ticks.raw": "market_tick",
     "news.articles.raw": "news_article",
     "social.posts.raw": "social_post",
+    # events.extracted is plain JSON (not Avro) — omit to fall through to json.loads
 }
 
 _CHECKPOINT_INTERVAL_S = 300  # 5 minutes
@@ -87,9 +87,18 @@ class KafkaSinkConsumer:
                     raise KafkaException(msg.error())
 
                 topic = msg.topic()
-                record = self._deserialize(topic, msg.value())
+                raw = msg.value()
+                record = self._deserialize(topic, raw)
                 if record is None:
-                    logger.warning("Failed to deserialize message", topic=topic)
+                    # Silently skip legacy Confluent Avro wire-format messages on
+                    # JSON-only topics (magic byte 0x00 = Confluent wire format).
+                    # events.extracted was previously produced as Avro by an older
+                    # version of sec_filing_producer; those stale messages in the
+                    # topic are unrecoverable and should be discarded quietly.
+                    if topic not in _TOPIC_TO_SCHEMA and len(raw) >= 5 and raw[0] == 0x00:
+                        logger.debug("Skipping legacy Avro message on JSON topic", topic=topic)
+                    else:
+                        logger.warning("Failed to deserialize message", topic=topic)
                     continue
 
                 writer_name = _TOPIC_TO_WRITER.get(topic)

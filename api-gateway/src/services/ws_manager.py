@@ -18,11 +18,12 @@ logger = structlog.get_logger(__name__)
 _PING_INTERVAL = 30
 _PONG_TIMEOUT = 10
 
-# Topics carrying Confluent wire-format Avro; everything else on TOPICS is plain JSON.
 _TOPIC_TO_SCHEMA = {
     "market.ticks.clean": "market_tick",
     "alerts.anomalies": "anomaly_alert",
     "news.articles.scored": "news_sentiment",
+    # events.extracted, agent.recommendations, watchlist.signals, predictions.signals
+    # are plain JSON — omit from this map so they fall through to json.loads
 }
 
 
@@ -133,11 +134,16 @@ class KafkaBridgeConsumer:
                 continue
             try:
                 topic = msg.topic()
+                raw = msg.value()
                 schema_name = _TOPIC_TO_SCHEMA.get(topic)
                 if schema_name is not None:
-                    value = avro_deserializer.deserialize(schema_name, msg.value())
+                    value = avro_deserializer.deserialize(schema_name, raw)
                 else:
-                    value = json.loads(msg.value())
+                    # Skip legacy Confluent Avro wire-format messages (magic byte 0x00)
+                    # on JSON-only topics — leftover from older producer versions.
+                    if len(raw) >= 5 and raw[0] == 0x00:
+                        continue
+                    value = json.loads(raw.decode("utf-8"))
                 symbol = value.get("symbol")
                 payload = {"type": topic, "data": value}
 

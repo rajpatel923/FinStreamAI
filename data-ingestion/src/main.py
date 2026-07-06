@@ -6,6 +6,7 @@ import structlog
 
 from src.config.data_source_config import data_source_config
 from src.producers.base_producer import BaseProducer
+from src.producers.finnhub_producer import FinnhubProducer
 from src.producers.market_bar_producer import MarketBarProducer
 from src.producers.market_data_producer import MarketDataProducer
 from src.producers.news_producer import NewsProducer
@@ -24,13 +25,17 @@ def _handle_shutdown(signum: int, frame: object) -> None:
 
 
 def build_producers() -> list[BaseProducer]:
-    return [
+    producers: list[BaseProducer] = [
         MarketDataProducer(),
         MarketBarProducer(),
         NewsProducer(),
         RedditProducer(),
         SECFilingProducer(),
     ]
+    if data_source_config.FINNHUB_API_KEY:
+        producers.append(FinnhubProducer())
+        logger.info("Finnhub WebSocket producer enabled")
+    return producers
 
 
 def run_producer_thread(producer: BaseProducer) -> None:

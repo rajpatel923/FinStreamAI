@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 
 import structlog
 from confluent_kafka import Consumer, KafkaError, Producer
@@ -47,8 +48,10 @@ class EventsConsumer:
     def _process(self, record: dict) -> None:
         text = record.get("headline", "") + " " + (record.get("body") or "")
         event = self._extractor.extract(text.strip(), source_id=record.get("article_id"))
-        # Attach symbols from the source article
         event["symbols"] = record.get("symbols", [])
+        # Normalize to fields expected by data-lake quality checker
+        event.setdefault("event_id", str(uuid.uuid4()))
+        event.setdefault("timestamp", event.get("extracted_ms", int(time.time() * 1000)))
         value_bytes = json.dumps(event).encode()
         key = (record.get("article_id") or "unknown").encode()
         try:

@@ -348,6 +348,9 @@ services:
       dockerfile: data-ingestion/Dockerfile
     container_name: finstreami-data-ingestion
     networks: [finstreami-network]
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     depends_on:
       kafka:
         condition: service_healthy

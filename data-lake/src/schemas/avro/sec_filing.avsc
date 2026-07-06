@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "namespace": "ai.finstream",
+  "name": "SECFiling",
+  "fields": [
+    {"name": "filing_id", "type": "string"},
+    {"name": "cik", "type": "string"},
+    {"name": "company_name", "type": "string"},
+    {"name": "ticker", "type": ["null", "string"], "default": null},
+    {"name": "form_type", "type": "string"},
+    {"name": "filed_ms", "type": "long"},
+    {"name": "period_of_report", "type": ["null", "string"], "default": null},
+    {"name": "filing_url", "type": "string"},
+    {"name": "description", "type": ["null", "string"], "default": null},
+    {"name": "is_mock", "type": "boolean", "default": false}
+  ]
+}

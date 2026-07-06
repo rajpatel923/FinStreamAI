@@ -48,8 +48,8 @@ class TimescaleDBSink:
                     cur.execute(
                         """
                         INSERT INTO market_bars
-                            (time, symbol, timeframe, open, high, low, close, volume, vwap, trade_count, source)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            (time, symbol, timeframe, open_price, high_price, low_price, close_price, volume, vwap, trade_count)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (time, symbol, timeframe) DO NOTHING
                         """,
                         (
@@ -63,7 +63,6 @@ class TimescaleDBSink:
                             bar["volume"],
                             bar.get("vwap"),
                             bar.get("trade_count"),
-                            bar.get("source", "stream-aggregation"),
                         ),
                     )
             conn.commit()
@@ -96,13 +95,15 @@ class TimescaleDBSink:
                 for ind in self._indicator_buffer:
                     ts = datetime.fromtimestamp(ind["timestamp_ms"] / 1000, tz=timezone.utc)
                     import json
-                    metadata_json = json.dumps(ind.get("metadata", {}))
+                    meta = {**ind.get("metadata", {})}
+                    for extra_key in ("signal_value", "upper_band", "lower_band"):
+                        if ind.get(extra_key) is not None:
+                            meta[extra_key] = ind[extra_key]
                     cur.execute(
                         """
                         INSERT INTO technical_indicators
-                            (time, symbol, indicator_name, timeframe, value,
-                             signal_value, upper_band, lower_band, metadata)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                            (time, symbol, indicator_name, timeframe, value, metadata)
+                        VALUES (%s, %s, %s, %s, %s, %s::jsonb)
                         ON CONFLICT (time, symbol, indicator_name, timeframe) DO NOTHING
                         """,
                         (
@@ -111,10 +112,7 @@ class TimescaleDBSink:
                             ind["indicator_name"],
                             ind["timeframe"],
                             ind["value"],
-                            ind.get("signal_value"),
-                            ind.get("upper_band"),
-                            ind.get("lower_band"),
-                            metadata_json,
+                            json.dumps(meta),
                         ),
                     )
             conn.commit()
@@ -147,21 +145,25 @@ class TimescaleDBSink:
             with conn.cursor() as cur:
                 for sig in self._signal_buffer:
                     ts = datetime.fromtimestamp(sig["timestamp_ms"] / 1000, tz=timezone.utc)
+                    meta = __import__("json").dumps({
+                        "indicator_values": sig.get("indicator_values", {}),
+                        "source": sig.get("source", "signal-generation"),
+                    })
                     cur.execute(
                         """
                         INSERT INTO trading_signals
-                            (time, symbol, signal_type, direction, strength, indicator_values, source)
-                        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s)
+                            (time, symbol, signal_type, signal_strength, direction, confidence, metadata)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
                         ON CONFLICT (time, symbol, signal_type) DO NOTHING
                         """,
                         (
                             ts,
                             sig["symbol"],
                             sig["signal_type"],
-                            sig["direction"],
                             sig["strength"],
-                            __import__("json").dumps(sig.get("indicator_values", {})),
-                            sig.get("source", "signal-generation"),
+                            sig["direction"],
+                            sig.get("confidence", sig.get("strength", 0.0)),
+                            meta,
                         ),
                     )
             conn.commit()

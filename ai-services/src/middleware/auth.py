@@ -3,6 +3,7 @@
 Validates Bearer tokens on all paths except health/metrics/docs.
 Passes X-User-Id and X-User-Role headers to downstream handlers.
 Returns 401 for missing/invalid tokens (when JWT_SECRET_KEY is configured).
+Auth is disabled entirely when DEBUG=True so local dev works without tokens.
 """
 from __future__ import annotations
 
@@ -20,11 +21,11 @@ _SKIP_PATHS = frozenset(
 
 
 class JWTAuthMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, secret_key: str, algorithm: str = "HS256") -> None:
+    def __init__(self, app, secret_key: str, algorithm: str = "HS256", debug: bool = False) -> None:
         super().__init__(app)
         self._secret = secret_key
         self._algorithm = algorithm
-        self._enabled = bool(secret_key)
+        self._enabled = bool(secret_key) and not debug
 
     async def dispatch(self, request: Request, call_next):
         if not self._enabled:

@@ -84,7 +84,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(JWTAuthMiddleware, secret_key=settings.JWT_SECRET_KEY)
+app.add_middleware(JWTAuthMiddleware, secret_key=settings.JWT_SECRET_KEY, debug=settings.DEBUG)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS or ["*"],
