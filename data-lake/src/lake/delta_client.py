@@ -53,7 +53,7 @@ class DeltaClient:
             overwrite_schema=(schema_mode == "overwrite"),
             storage_options=self.storage_options,
         )
-        logger.info("Delta write complete", path=path, rows=len(df), mode=mode)
+        logger.debug("Delta write complete", path=path, rows=len(df), mode=mode)
 
     # ------------------------------------------------------------------
     # Read

@@ -156,7 +156,15 @@
       "Bash(curl -s http://localhost:8003/health)",
       "Bash(curl -s -X POST http://localhost:8003/api/v1/sentiment/analyze -H 'Content-Type: application/json' -d '{\"texts\": [ *)",
       "Bash(python -m pytest tests/test_finnhub_producer.py -v)",
-      "Bash(python -m pytest --tb=short -q)"
+      "Bash(python -m pytest --tb=short -q)",
+      "Bash(docker run *)",
+      "Bash(docker network *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(awk NR>=374 && NR<=390 *)",
+      "Bash(docker restart finstreami-api-gateway *)",
+      "Bash(xargs cat)",
+      "Bash(python -m pytest stream-processing/tests/test_aggregation_job.py -v --tb=short)"
     ]
   }
 }

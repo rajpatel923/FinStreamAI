@@ -13,15 +13,24 @@ logger = structlog.get_logger(__name__)
 _ALLOWED_TABLES = frozenset(
     {
         "market_ticks",
-        "market_bars_1min",
-        "market_bars_5min",
-        "market_bars_15min",
-        "market_bars_1hour",
-        "news_articles_scored",
-        "social_sentiment",
+        "market_bars",
         "technical_indicators",
+        "sentiment_scores",
+        "trading_signals",
     }
 )
+
+_INTERVAL_TO_TIMEFRAME: dict[str, str] = {
+    "1m": "1min",
+    "5m": "5min",
+    "15m": "15min",
+    "1h": "1hour",
+    "1d": "1hour",
+    "1min": "1min",
+    "5min": "5min",
+    "15min": "15min",
+    "1hour": "1hour",
+}
 
 _ALLOWED_ORDER_DIRS = frozenset({"asc", "desc"})
 
@@ -34,6 +43,7 @@ async def query_market_data(
     limit: int = 1000,
     cursor: str | None = None,
     hours_limit: int | None = None,
+    interval: str = "1h",
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     if from_ts is None:
@@ -41,8 +51,11 @@ async def query_market_data(
     if to_ts is None:
         to_ts = now
 
+    timeframe = _INTERVAL_TO_TIMEFRAME.get(interval, "1hour")
+
     params: dict[str, Any] = {
         "symbol": symbol.upper(),
+        "timeframe": timeframe,
         "from_ts": from_ts,
         "to_ts": to_ts,
         "limit": min(limit, 10000),
@@ -52,20 +65,24 @@ async def query_market_data(
     if cursor:
         try:
             cursor_ts = datetime.fromisoformat(cursor)
-            cursor_clause = "AND timestamp < :cursor_ts"
+            cursor_clause = "AND time < :cursor_ts"
             params["cursor_ts"] = cursor_ts
         except ValueError:
             pass
 
     sql = text(
         f"""
-        SELECT timestamp, symbol, open, high, low, close, volume, vwap
-        FROM market_bars_1min
+        SELECT time AS timestamp, symbol,
+               open_price AS open, high_price AS high,
+               low_price AS low, close_price AS close,
+               volume, vwap
+        FROM market_bars
         WHERE symbol = :symbol
-          AND timestamp >= :from_ts
-          AND timestamp <= :to_ts
+          AND timeframe = :timeframe
+          AND time >= :from_ts
+          AND time <= :to_ts
           {cursor_clause}
-        ORDER BY timestamp DESC
+        ORDER BY time DESC
         LIMIT :limit
         """
     )

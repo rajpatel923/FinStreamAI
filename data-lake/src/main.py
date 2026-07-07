@@ -5,6 +5,9 @@ import threading
 import time
 from contextlib import asynccontextmanager
 
+import logging
+import os
+
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +26,14 @@ from src.lake.gold_layer import GoldLayer
 from src.lake.silver_layer import SilverLayer
 from src.quality.quarantine import Quarantine
 from src.query.unified_query import UnifiedQuery
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(
+        getattr(logging, LOG_LEVEL, logging.INFO)
+    )
+)
 
 logger = structlog.get_logger(__name__)
 

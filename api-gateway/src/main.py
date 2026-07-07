@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,33 @@ from src.core.database import close_db, init_db
 from src.middleware.logging import CorrelationIdMiddleware
 from src.middleware.rate_limit import limiter
 from src.services.ws_manager import ConnectionManager, KafkaBridgeConsumer
+
+# ─── Logging setup ───────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
+    format="%(message)s",
+)
+# Silence noisy third-party loggers — our middleware already logs api_call
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
+_is_dev = settings.DEBUG or settings.LOG_LEVEL == "DEBUG"
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="%H:%M:%S", utc=False),
+        structlog.dev.ConsoleRenderer() if _is_dev else structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(
+        getattr(logging, settings.LOG_LEVEL, logging.INFO)
+    ),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+)
 
 logger = structlog.get_logger(__name__)
 

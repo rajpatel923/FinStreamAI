@@ -1,3 +1,4 @@
+import logging
 import signal
 import threading
 
@@ -12,6 +13,16 @@ from src.jobs.feature_engineering_job import FeatureEngineeringJob
 from src.jobs.real_time_join_job import RealTimeJoinJob
 from src.jobs.signal_generation_job import SignalGenerationJob
 from src.utils.monitoring import start_metrics_server
+
+logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL, logging.INFO))
+if settings.LOG_LEVEL.upper() != "DEBUG":
+    for noisy_logger in ("httpx", "httpcore", "aiokafka", "kafka", "confluent_kafka"):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(
+        getattr(logging, settings.LOG_LEVEL, logging.INFO)
+    ),
+)
 
 logger = structlog.get_logger(__name__)
 

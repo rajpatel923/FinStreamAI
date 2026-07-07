@@ -125,7 +125,8 @@ app.include_router(portfolio.router, prefix=_PREFIX)
 app.include_router(trading.router, prefix=_PREFIX)
 
 
-@app.get("/health", include_in_schema=True)
+@app.get("/health", include_in_schema=False)
+@app.get("/api/v1/health", include_in_schema=True)
 async def health():
     return {"status": "ok", "service": "agent-service"}
 

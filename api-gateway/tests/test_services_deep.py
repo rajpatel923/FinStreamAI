@@ -291,7 +291,7 @@ async def test_export_service_mocked():
         result = await run_export(
             job_id=uuid.uuid4(),
             user_id=uuid.uuid4(),
-            query_params={"table": "market_bars_1min", "symbol": "AAPL"},
+            query_params={"table": "market_bars", "symbol": "AAPL"},
             output_format="json",
             db_session_factory=factory,
         )
@@ -315,7 +315,7 @@ async def test_export_service_csv_format():
         result = await run_export(
             job_id=uuid.uuid4(),
             user_id=uuid.uuid4(),
-            query_params={"table": "market_bars_1min"},
+            query_params={"table": "market_bars"},
             output_format="csv",
             db_session_factory=factory,
         )
@@ -337,7 +337,7 @@ async def test_export_service_parquet_format():
         result = await run_export(
             job_id=uuid.uuid4(),
             user_id=uuid.uuid4(),
-            query_params={"table": "market_bars_1min"},
+            query_params={"table": "market_bars"},
             output_format="parquet",
             db_session_factory=factory,
         )

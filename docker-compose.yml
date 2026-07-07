@@ -29,6 +29,8 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_LOG4J_LOGGERS: kafka=WARN,kafka.controller=WARN,kafka.coordinator=WARN,kafka.log=WARN,kafka.network=WARN,kafka.server=WARN,state.change.logger=WARN
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
@@ -57,6 +59,7 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: WARN
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
       interval: 15s
@@ -230,6 +233,21 @@ services:
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
 
+  minio-setup:
+    image: minio/mc:latest
+    container_name: finstreami-minio-setup
+    networks: [finstreami-network]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "mc alias set finstreami http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD --api S3v4 && mc mb --ignore-existing finstreami/finstreami-datalake && echo 'MinIO bucket ready.'"
+    restart: "no"
+
   # ─── Data Lake ───────────────────────────────────────────────
   data-lake:
     build:
@@ -244,12 +262,15 @@ services:
         condition: service_completed_successfully
       minio:
         condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
       neo4j:
         condition: service_started
       timescaledb:
         condition: service_healthy
     env_file: .env
     environment:
+      LOG_LEVEL: INFO
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       TIMESCALEDB_HOST: timescaledb
@@ -281,6 +302,7 @@ services:
         condition: service_completed_successfully
     env_file: .env
     environment:
+      LOG_LEVEL: INFO
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       REDIS_HOST: redis
@@ -321,6 +343,7 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
+      LOG_LEVEL: INFO
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       REDIS_HOST: redis
@@ -329,8 +352,8 @@ services:
       API_GATEWAY_INTERNAL_URL: http://api-gateway:8005
       AGENT_SERVICE_PORT: 8006
       LLM_PROVIDER: llama_cpp
-      LLAMA_CPP_BASE_URL: http://host.docker.internal:11434/v1
-      LLAMA_CPP_MODEL: ../gguf_models/Qwen3-Coder-Next-Q4_K_M.gguf
+      LLAMA_CPP_BASE_URL: http://host.docker.internal:8080/v1
+      LLAMA_CPP_MODEL: local-model
       LLAMA_CPP_API_KEY: none
     ports:
       - "8006:8006"
@@ -360,6 +383,7 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
+      LOG_LEVEL: INFO
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
     restart: unless-stopped
@@ -384,14 +408,15 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
+      LOG_LEVEL: INFO
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       REDIS_HOST: redis
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: 5432
       AI_SERVICES_PORT: 8003
       LLM_PROVIDER: llama_cpp
-      LLAMA_CPP_BASE_URL: http://host.docker.internal:11434/v1
-      LLAMA_CPP_MODEL: ../gguf_models/Qwen3-Coder-Next-Q4_K_M.gguf
+      LLAMA_CPP_BASE_URL: http://host.docker.internal:8080/v1
+      LLAMA_CPP_MODEL: local-model
       LLAMA_CPP_API_KEY: none
     ports:
       - "8003:8003"
@@ -418,6 +443,7 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
+      LOG_LEVEL: INFO
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       TIMESCALEDB_HOST: timescaledb

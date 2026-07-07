@@ -51,7 +51,7 @@ class MarketDataProducer(BaseProducer):
 
     def poll_interval_seconds(self) -> float:
         if self._use_mock:
-            return 1.0
+            return 30.0
         if self._polygon_key:
             return 1.0
         if self._av_key:

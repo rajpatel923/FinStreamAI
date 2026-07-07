@@ -93,7 +93,7 @@ async def run_backtest(
     user: User = Depends(require_role("premium_user", "admin")),
     db: AsyncSession = Depends(get_timescale_db),
 ):
-    """Vectorized pandas backtest over market_bars_1min."""
+    """Vectorized pandas backtest over market_bars."""
     symbol = body.get("symbol", "AAPL").upper()
     strategy = body.get("strategy", "sma_crossover")
     short_window = int(body.get("short_window", 10))
@@ -111,8 +111,9 @@ async def run_backtest(
         sql = text(
             """
             SELECT timestamp, close
-            FROM market_bars_1min
-            WHERE symbol = :symbol AND timestamp >= :from_ts AND timestamp <= :to_ts
+            FROM market_bars
+            WHERE symbol = :symbol AND timeframe = '1min'
+              AND timestamp >= :from_ts AND timestamp <= :to_ts
             ORDER BY timestamp ASC
             LIMIT 50000
             """

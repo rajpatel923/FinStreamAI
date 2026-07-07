@@ -11,8 +11,9 @@ from src.utils.monitoring import window_buffers_active
 
 logger = structlog.get_logger(__name__)
 
-_TIMEFRAMES = ["5min", "15min", "1hour"]
+_TIMEFRAMES = ["1min", "5min", "15min", "1hour"]
 _TOPIC_MAP = {
+    "1min": "market.bars.1min",
     "5min": "market.bars.5min",
     "15min": "market.bars.15min",
     "1hour": "market.bars.1hour",
@@ -21,9 +22,8 @@ _TOPIC_MAP = {
 
 class AggregationJob(BaseJob):
     """
-    Consumes market.ticks.clean, produces OHLCV bars to market.bars.{5min,15min,1hour}
+    Consumes market.ticks.clean, produces OHLCV bars to market.bars.{1min,5min,15min,1hour}
     and writes to TimescaleDB market_bars hypertable.
-    Note: market.bars.1min is produced by Phase 2 MarketBarProducer — not here.
     """
 
     INPUT_TOPIC = "market.ticks.clean"
@@ -61,6 +61,11 @@ class AggregationJob(BaseJob):
                 self._db_sink.write_market_bar(bar)
             except Exception as exc:
                 logger.error("TimescaleDB write failed", job=self.job_name, error=str(exc))
+        if bars:
+            try:
+                self._db_sink.flush()
+            except Exception as exc:
+                logger.error("TimescaleDB flush failed", job=self.job_name, error=str(exc))
 
     def run(self) -> None:
         try:

@@ -48,6 +48,8 @@ def configure_logging() -> None:
     # Quiet noisy libraries
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:

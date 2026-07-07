@@ -22,6 +22,7 @@ router = APIRouter(prefix="/query", tags=["query"])
 @router.get("/market-data", response_model=MarketDataResponse)
 async def get_market_data(
     symbol: str = Query(..., max_length=20),
+    interval: str = Query(default="1h", max_length=10),
     from_ts: datetime | None = None,
     to_ts: datetime | None = None,
     limit: int = Query(default=1000, ge=1, le=10000),
@@ -30,20 +31,17 @@ async def get_market_data(
     db: AsyncSession = Depends(get_timescale_db),
 ):
     hours_limit = None
-    symbol_limit = None
 
     if user.role == "free_user":
         hours_limit = settings.FREE_TIER_MARKET_DATA_HOURS
-        # enforce 24h window
         if from_ts is None:
-            from datetime import timezone
-            from datetime import timedelta
+            from datetime import timezone, timedelta
             now = datetime.now(timezone.utc)
             from_ts = now - timedelta(hours=hours_limit)
         limit = min(limit, 5000)
 
     result = await query_service.query_market_data(
-        db, symbol, from_ts, to_ts, limit, cursor, hours_limit
+        db, symbol, from_ts, to_ts, limit, cursor, hours_limit, interval
     )
     return MarketDataResponse(**result)
 

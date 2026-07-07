@@ -5,6 +5,7 @@ from threading import Lock
 from src.config import settings
 
 TIMEFRAME_MS: dict[str, int] = {
+    "1min": 60_000,
     "5min": 300_000,
     "15min": 900_000,
     "1hour": 3_600_000,

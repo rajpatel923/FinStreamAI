@@ -16,7 +16,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 logger = structlog.get_logger(__name__)
 
 _SKIP_PATHS = frozenset(
-    {"/health", "/ready", "/live", "/metrics", "/docs", "/redoc", "/openapi.json"}
+    {
+        "/health", "/ready", "/live",
+        "/api/v1/health", "/api/v1/ready", "/api/v1/live",
+        "/metrics", "/docs", "/redoc", "/openapi.json",
+    }
 )
 
 

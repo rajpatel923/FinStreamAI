@@ -1,59 +1,110 @@
-"use client";
+'use client';
 
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ErrorBanner, Field, Button, getErrorMessage } from "@/components/ui";
-import { login, register } from "@/lib/api";
+import { useState, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { login, register } from '@/lib/api';
+import { Button, Input, Alert, cn } from '@/components/ui';
+
+type Mode = 'login' | 'register';
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const router   = useRouter();
+  const [mode,   setMode]   = useState<Mode>('login');
+  const [email,  setEmail]  = useState('');
+  const [pass,   setPass]   = useState('');
+  const [name,   setName]   = useState('');
+  const [error,  setError]  = useState('');
+  const [busy,   setBusy]   = useState(false);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
+  const switchMode = (m: Mode) => { setMode(m); setError(''); };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
     try {
-      if (mode === "register") await register(email, password, fullName);
-      await login(email, password);
-      router.replace("/dashboard");
-    } catch (err) {
-      setError(getErrorMessage(err));
+      if (mode === 'register') await register(email, pass, name || undefined);
+      await login(email, pass);
+      router.replace('/dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  }
+  };
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded border border-gray-800 bg-black p-5">
-        <div>
-          <h1 className="text-xl font-semibold">{mode === "login" ? "Login" : "Create account"}</h1>
-          <p className="mt-1 text-sm text-gray-400">Access the FinStreamAI workspace.</p>
+    <div className="min-h-screen flex items-center justify-center bg-[#030712] px-4">
+      <div className="w-full max-w-sm">
+        {/* Brand */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600 text-white font-bold text-lg mb-4 select-none">
+            FS
+          </div>
+          <h1 className="text-2xl font-bold text-slate-100">FinStreamAI</h1>
+          <p className="text-sm text-slate-500 mt-1">Financial intelligence workspace</p>
         </div>
-        <ErrorBanner message={error} />
-        {mode === "register" ? <Field label="Full name" value={fullName} onChange={setFullName} /> : null}
-        <Field label="Email" type="email" value={email} onChange={setEmail} required />
-        <Field label="Password" type="password" value={password} onChange={setPassword} required />
-        <Button type="submit" disabled={loading}>
-          {loading ? "Working..." : mode === "login" ? "Login" : "Register"}
-        </Button>
-        <button
-          type="button"
-          className="text-sm text-indigo-300 hover:text-indigo-200"
-          onClick={() => {
-            setError("");
-            setMode(mode === "login" ? "register" : "login");
-          }}
-        >
-          {mode === "login" ? "Need an account? Register" : "Already have an account? Login"}
-        </button>
-      </form>
-    </main>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+          {/* Mode toggle */}
+          <div className="flex rounded-lg bg-slate-800/60 p-1 mb-6">
+            {(['login', 'register'] as Mode[]).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={cn(
+                  'flex-1 py-1.5 text-sm font-medium rounded-md transition-colors',
+                  mode === m ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
+                )}
+              >
+                {m === 'login' ? 'Sign in' : 'Sign up'}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'register' && (
+              <Input
+                label="Full name"
+                type="text"
+                placeholder="Jane Doe"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                autoComplete="name"
+              />
+            )}
+            <Input
+              label="Email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
+            <Input
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              value={pass}
+              onChange={e => setPass(e.target.value)}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              required
+            />
+
+            {error && <Alert message={error} variant="error" onClose={() => setError('')} />}
+
+            <Button type="submit" loading={busy} className="w-full mt-2">
+              {mode === 'login' ? 'Sign in' : 'Create account'}
+            </Button>
+          </form>
+        </div>
+
+        <p className="text-center text-xs text-slate-600 mt-6">
+          All traffic is encrypted. Tokens stored locally only.
+        </p>
+      </div>
+    </div>
   );
 }
